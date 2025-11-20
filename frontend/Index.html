@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Priorizador Nexus IA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'sans': ['Inter', 'system-ui', 'sans-serif']
+                    },
+                    colors: {
+                        'brand-primary': '#009C56',
+                        'brand-secondary': '#FDEC30',
+                        'brand-green-light': '#70B649',
+                        'brand-green-medium': '#61C295',
+                        'brand-yellow-gold': '#FFC200',
+                        'brand-black': '#2B2B2B',
+                        'brand-gray-dark': '#696868',
+                        'brand-gray-medium': '#CCCCCC',
+                        'brand-gray-light': '#F7F7F7',
+                        'quick-win': '#70B649',
+                        'strategic': '#009C56',
+                        'incremental': '#FFC200',
+                        'reconsider': '#696868'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Custom Styles -->
+    <?!= include('Styles') ?>
+</head>
+<body class="bg-brand-gray-light min-h-screen font-sans">
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="fixed left-0 top-0 h-full w-64 bg-white border-r border-brand-gray-medium shadow-xl z-50 flex flex-col transition-all duration-300 ease-in-out">
+        <!-- Toggle Button -->
+        <button id="sidebarToggle" class="absolute -right-3 top-8 w-6 h-6 bg-brand-primary rounded-full shadow-lg flex items-center justify-center hover:scale-110 transition-transform z-10">
+            <svg id="toggleIcon" class="w-4 h-4 text-white transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+            </svg>
+        </button>
+
+        <!-- Logo Header -->
+        <div class="logo-header p-6 border-b border-brand-gray-medium">
+            <img id="sidebarLogo" src="https://github.com/sb-talentohumano-ia/nexus-ai-logo/blob/main/logo%20(2).png?raw=true"
+                 alt="Nexus AI"
+                 class="h-20 w-auto mb-2 transition-all duration-300">
+            <h1 id="sidebarTitle" class="text-xs font-medium text-brand-gray-dark transition-opacity duration-300 text-center">Priorizador de Iniciativas</h1>
+        </div>
+
+        <!-- Navigation Menu -->
+        <nav class="flex-1 py-4 px-3 space-y-1">
+            <button id="navDashboard" class="nav-item active w-full px-4 py-3 text-left flex items-center space-x-3 rounded-xl transition-all duration-200">
+                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                </svg>
+                <span class="nav-text font-medium whitespace-nowrap">Dashboard</span>
+            </button>
+
+            <button id="navLista" class="nav-item w-full px-4 py-3 text-left flex items-center space-x-3 rounded-xl transition-all duration-200">
+                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                </svg>
+                <span class="nav-text font-medium whitespace-nowrap">Lista</span>
+            </button>
+
+            <button id="navCreateInitiative" class="nav-item w-full px-4 py-3 text-left flex items-center space-x-3 rounded-xl transition-all duration-200">
+                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                </svg>
+                <span class="nav-text font-medium whitespace-nowrap">Nueva Iniciativa</span>
+            </button>
+
+            <button id="navNexusAI" class="nav-item w-full px-4 py-3 text-left flex items-center space-x-3 rounded-xl transition-all duration-200 opacity-40 cursor-not-allowed">
+                <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                </svg>
+                <span class="nav-text font-medium whitespace-nowrap">Nexus AI</span>
+                <span class="nav-text text-xs bg-brand-gray-light text-brand-gray-dark px-2 py-0.5 rounded-full ml-auto">Pronto</span>
+            </button>
+        </nav>
+
+        <!-- User Info -->
+        <div id="sidebarUser" class="p-4 border-t border-brand-gray-medium">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-full bg-brand-primary flex items-center justify-center text-white font-semibold flex-shrink-0">
+                    <span id="userInitials">U</span>
+                </div>
+                <div class="flex-1 min-w-0 nav-text">
+                    <p id="userName" class="text-sm font-medium text-brand-black truncate">Usuario</p>
+                    <p id="userRole" class="text-xs text-brand-gray-dark">Cargando...</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main id="mainContent" class="ml-64 min-h-screen transition-all duration-300 ease-in-out p-8">
+        <!-- Content Area -->
+            <!-- Loading State -->
+            <div id="loadingState" class="flex items-center justify-center py-20">
+                <div class="text-center">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-primary mx-auto mb-4"></div>
+                    <p class="text-brand-gray-dark">Cargando iniciativas...</p>
+                </div>
+            </div>
+
+            <!-- Dashboard View -->
+            <div id="dashboardView" class="hidden">
+                <!-- Dashboard Tabs (Pill Style) -->
+                <div class="mb-8 flex justify-center">
+                    <div class="inline-flex bg-white rounded-full p-1.5 shadow-md w-full max-w-md">
+                        <button id="tabGeneral" class="tab-button active flex-1 px-8 py-3 rounded-full font-semibold transition-all duration-300">
+                            General
+                        </button>
+                        <button id="tabClasificacion" class="tab-button flex-1 px-8 py-3 rounded-full font-semibold transition-all duration-300">
+                            Clasificación
+                        </button>
+                    </div>
+                </div>
+
+                <!-- General Dashboard -->
+                <div id="generalDashboard" class="space-y-6">
+                    <!-- Filtros Compactos (Estilo Power BI) -->
+                    <div class="flex flex-wrap items-center gap-3 p-4">
+                        <div class="flex items-center space-x-2">
+                            <svg class="w-5 h-5 text-brand-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path>
+                            </svg>
+                            <span class="text-sm font-semibold text-brand-black">Filtros:</span>
+                        </div>
+                        
+                        <!-- Filtro Gerencia -->
+                        <div class="relative">
+                            <div id="filterGerenciaSelector" class="min-w-[200px] px-4 py-2 bg-white border border-brand-gray-medium rounded-lg cursor-pointer hover:border-brand-primary transition-colors shadow-sm">
+                                <div id="filterGerenciaSelectedTags" class="flex flex-wrap gap-1 mb-1"></div>
+                                <div class="flex items-center justify-between">
+                                    <span id="filterGerenciaPlaceholder" class="text-sm text-brand-gray-dark">Gerencias</span>
+                                    <svg class="w-4 h-4 text-brand-gray-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                            <div id="filterGerenciaDropdown" class="hidden absolute z-50 w-64 mt-2 bg-white border border-brand-gray-medium rounded-lg shadow-xl max-h-80 overflow-hidden">
+                                <div class="p-2 border-b border-brand-gray-medium">
+                                    <input type="text" id="filterGerenciaSearch" placeholder="Buscar..." 
+                                           class="w-full px-3 py-1.5 text-sm border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary">
+                                </div>
+                                <div id="filterGerenciaOptions" class="max-h-60 overflow-y-auto p-2">
+                                    <!-- Options will be populated here -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Filtro Proceso -->
+                        <div class="relative">
+                            <div id="filterProcesoSelector" class="min-w-[200px] px-4 py-2 bg-white border border-brand-gray-medium rounded-lg cursor-pointer hover:border-brand-primary transition-colors shadow-sm">
+                                <div id="filterProcesoSelectedTags" class="flex flex-wrap gap-1 mb-1"></div>
+                                <div class="flex items-center justify-between">
+                                    <span id="filterProcesoPlaceholder" class="text-sm text-brand-gray-dark">Procesos</span>
+                                    <svg class="w-4 h-4 text-brand-gray-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                            <div id="filterProcesoDropdown" class="hidden absolute z-50 w-64 mt-2 bg-white border border-brand-gray-medium rounded-lg shadow-xl max-h-80 overflow-hidden">
+                                <div class="p-2 border-b border-brand-gray-medium">
+                                    <input type="text" id="filterProcesoSearch" placeholder="Buscar..." 
+                                           class="w-full px-3 py-1.5 text-sm border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary">
+                                </div>
+                                <div id="filterProcesoOptions" class="max-h-60 overflow-y-auto p-2">
+                                    <!-- Options will be populated here -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Filtro Responsable -->
+                        <div class="relative">
+                            <div id="filterResponsableSelector" class="min-w-[200px] px-4 py-2 bg-white border border-brand-gray-medium rounded-lg cursor-pointer hover:border-brand-primary transition-colors shadow-sm">
+                                <div id="filterResponsableSelectedTags" class="flex flex-wrap gap-1 mb-1"></div>
+                                <div class="flex items-center justify-between">
+                                    <span id="filterResponsablePlaceholder" class="text-sm text-brand-gray-dark">Responsables</span>
+                                    <svg class="w-4 h-4 text-brand-gray-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                            <div id="filterResponsableDropdown" class="hidden absolute z-50 w-64 mt-2 bg-white border border-brand-gray-medium rounded-lg shadow-xl max-h-80 overflow-hidden">
+                                <div class="p-2 border-b border-brand-gray-medium">
+                                    <input type="text" id="filterResponsableSearch" placeholder="Buscar..." 
+                                           class="w-full px-3 py-1.5 text-sm border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary">
+                                </div>
+                                <div id="filterResponsableOptions" class="max-h-60 overflow-y-auto p-2">
+                                    <!-- Options will be populated here -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button id="clearFilters" class="px-4 py-2 text-sm font-medium text-white bg-brand-primary hover:bg-brand-green-medium rounded-lg transition-colors shadow-sm">
+                            <svg class="w-4 h-4 inline-block mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                            Limpiar
+                        </button>
+                    </div>
+
+                    <!-- Métricas Principales - Colores Corporativos Bolívar -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <div class="bg-white border-2 border-brand-primary rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+                            <div class="flex items-center justify-between mb-3">
+                                <p class="text-sm font-medium text-brand-gray-dark">Total Iniciativas</p>
+                                <div class="p-2 bg-brand-primary/10 rounded-xl">
+                                    <svg class="w-6 h-6 text-brand-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                            <p id="totalInitiatives" class="text-4xl font-bold text-brand-black">0</p>
+                            <p class="text-xs text-brand-gray-dark mt-2">
+                                <span id="productiveCount" class="font-semibold text-brand-primary">0</span> en producción
+                            </p>
+                        </div>
+
+                        <div class="bg-white border-2 border-brand-green-light rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+                            <div class="flex items-center justify-between mb-3">
+                                <p class="text-sm font-medium text-brand-gray-dark">Ahorro COP/mes</p>
+                                <div class="p-2 bg-brand-green-light/10 rounded-xl">
+                                    <svg class="w-6 h-6 text-brand-green-light" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                            <div class="flex items-baseline space-x-2">
+                                <p id="realSavings" class="text-3xl font-bold text-brand-black">$0</p>
+                                <p id="expectedSavings" class="text-base text-brand-gray-dark">/ $0</p>
+                            </div>
+                            <p class="text-xs text-brand-gray-dark mt-1">Real / Esperado (millones)</p>
+                        </div>
+
+                        <div class="bg-white border-2 border-brand-green-medium rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+                            <div class="flex items-center justify-between mb-3">
+                                <p class="text-sm font-medium text-brand-gray-dark">Horas Ahorradas</p>
+                                <div class="p-2 bg-brand-green-medium/10 rounded-xl">
+                                    <svg class="w-6 h-6 text-brand-green-medium" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                            <div class="flex items-baseline space-x-2">
+                                <p id="realHours" class="text-3xl font-bold text-brand-black">0</p>
+                                <p id="expectedHours" class="text-base text-brand-gray-dark">/ 0</p>
+                            </div>
+                            <p class="text-xs text-brand-gray-dark mt-1">Real / Esperado (hrs/mes)</p>
+                        </div>
+
+                        <div class="bg-white border-2 border-brand-yellow-gold rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
+                            <div class="flex items-center justify-between mb-3">
+                                <p class="text-sm font-medium text-brand-gray-dark">Estado General</p>
+                                <div class="p-2 bg-brand-yellow-gold/10 rounded-xl">
+                                    <svg class="w-6 h-6 text-brand-yellow-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                            <div class="space-y-1.5">
+                                <div class="flex justify-between text-sm">
+                                    <span class="text-brand-gray-dark">Productivo:</span>
+                                    <span id="statusProductive" class="font-semibold text-brand-primary">0</span>
+                                </div>
+                                <div class="flex justify-between text-sm">
+                                    <span class="text-brand-gray-dark">En desarrollo:</span>
+                                    <span id="statusDevelopment" class="font-semibold text-brand-green-light">0</span>
+                                </div>
+                                <div class="flex justify-between text-sm">
+                                    <span class="text-brand-gray-dark">Sin iniciar:</span>
+                                    <span id="statusPending" class="font-semibold text-brand-gray-dark">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Gráficos -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- Donut de Iniciativas por Gerencia -->
+                        <div class="bg-white rounded-2xl p-6 shadow-sm">
+                            <h3 class="text-lg font-semibold text-brand-black mb-4">Iniciativas por Gerencia</h3>
+                            <div style="height: 280px; position: relative;">
+                                <canvas id="gerenciaDonutChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Barras horizontales de Horas por Gerencia -->
+                        <div class="bg-white rounded-2xl p-6 shadow-sm lg:col-span-2">
+                            <h3 class="text-lg font-semibold text-brand-black mb-4">Ahorro de Horas por Gerencia (Top 5)</h3>
+                            <div style="height: 280px; position: relative;">
+                                <canvas id="hoursChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Segunda fila de gráficos -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <!-- Donut de Iniciativas por Proceso -->
+                        <div class="bg-white rounded-2xl p-6 shadow-sm">
+                            <h3 class="text-lg font-semibold text-brand-black mb-4">Iniciativas por Proceso</h3>
+                            <div style="height: 280px; position: relative;">
+                                <canvas id="procesoDonutChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Barras horizontales de Ahorro Monetario por Gerencia -->
+                        <div class="bg-white rounded-2xl p-6 shadow-sm lg:col-span-2">
+                            <h3 class="text-lg font-semibold text-brand-black mb-4">Ahorro Monetario por Gerencia (Top 5)</h3>
+                            <div style="height: 280px; position: relative;">
+                                <canvas id="savingsChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tercera fila - Ahorro por Proceso -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div class="bg-white rounded-2xl p-6 shadow-sm">
+                            <h3 class="text-lg font-semibold text-brand-black mb-4">Ahorro de Horas por Proceso (Top 5)</h3>
+                            <div style="height: 280px; position: relative;">
+                                <canvas id="hoursProcesoChart"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-2xl p-6 shadow-sm">
+                            <h3 class="text-lg font-semibold text-brand-black mb-4">Ahorro Monetario por Proceso (Top 5)</h3>
+                            <div style="height: 280px; position: relative;">
+                                <canvas id="savingsProcesoChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tabla de Iniciativas Recientes -->
+                    <div class="bg-white rounded-2xl p-6 shadow-sm">
+                        <h3 class="text-lg font-semibold text-brand-black mb-4">Iniciativas Recientes</h3>
+                        <div id="recentInitiativesTable" class="space-y-3">
+                            <!-- Will be populated by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Clasificación Dashboard -->
+                <div id="clasificacionDashboard" class="hidden space-y-6">
+                    <!-- Stats Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-white rounded-xl p-6 shadow-sm border border-quick-win/20 hover:shadow-md transition-shadow">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-brand-gray-dark mb-1 font-medium">Quick Wins</p>
+                                <p id="quickWinCount" class="text-3xl font-bold text-quick-win">0</p>
+                            </div>
+                            <div class="p-3 bg-quick-win/10 rounded-xl">
+                                <svg class="w-7 h-7 text-quick-win" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl p-6 shadow-sm border border-strategic/20 hover:shadow-md transition-shadow">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-brand-gray-dark mb-1 font-medium">Estratégicos</p>
+                                <p id="strategicCount" class="text-3xl font-bold text-strategic">0</p>
+                            </div>
+                            <div class="p-3 bg-strategic/10 rounded-xl">
+                                <svg class="w-7 h-7 text-strategic" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl p-6 shadow-sm border border-incremental/20 hover:shadow-md transition-shadow">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-brand-gray-dark mb-1 font-medium">Incrementales</p>
+                                <p id="incrementalCount" class="text-3xl font-bold text-incremental">0</p>
+                            </div>
+                            <div class="p-3 bg-incremental/10 rounded-xl">
+                                <svg class="w-7 h-7 text-incremental" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11"></path>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-xl p-6 shadow-sm border border-reconsider/20 hover:shadow-md transition-shadow">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm text-brand-gray-dark mb-1 font-medium">Reconsiderar</p>
+                                <p id="reconsiderCount" class="text-3xl font-bold text-reconsider">0</p>
+                            </div>
+                            <div class="p-3 bg-reconsider/10 rounded-xl">
+                                <svg class="w-7 h-7 text-reconsider" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Priority Matrix -->
+                <div class="bg-white rounded-xl p-6 shadow-sm mb-8">
+                    <h3 class="text-xl font-bold text-brand-black mb-6">Matriz de Priorización</h3>
+                    <div class="relative" style="height: 500px;">
+                        <canvas id="priorityChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Recent Initiatives -->
+                <div class="bg-white rounded-xl p-6 shadow-sm">
+                    <h3 class="text-xl font-bold text-brand-black mb-6">Iniciativas Recientes</h3>
+                    <div id="recentInitiatives" class="space-y-4">
+                        <!-- Initiatives will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- List View -->
+            <div id="listView" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-brand-gray-light border-b border-brand-gray-medium">
+                                <tr>
+                                    <th class="px-6 py-4 text-left text-xs font-semibold text-brand-gray-dark uppercase tracking-wider">Nombre</th>
+                                    <th class="px-6 py-4 text-left text-xs font-semibold text-brand-gray-dark uppercase tracking-wider">Proceso</th>
+                                    <th class="px-6 py-4 text-left text-xs font-semibold text-brand-gray-dark uppercase tracking-wider">Responsable</th>
+                                    <th class="px-6 py-4 text-left text-xs font-semibold text-brand-gray-dark uppercase tracking-wider">Cuadrante</th>
+                                    <th class="px-6 py-4 text-left text-xs font-semibold text-brand-gray-dark uppercase tracking-wider">Impacto</th>
+                                    <th class="px-6 py-4 text-left text-xs font-semibold text-brand-gray-dark uppercase tracking-wider">Viabilidad</th>
+                                    <th class="px-6 py-4 text-left text-xs font-semibold text-brand-gray-dark uppercase tracking-wider">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="initiativesList" class="bg-white divide-y divide-brand-gray-medium">
+                                <!-- Table rows will be populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Create Initiative View - SIMPLE FORM -->
+            <div id="createInitiativeView" class="hidden">
+                <div class="max-w-4xl mx-auto p-6">
+                    <!-- Header -->
+                    <div class="mb-6 flex items-center justify-between">
+                        <div>
+                            <h1 class="text-2xl font-bold text-brand-black">Nueva Iniciativa</h1>
+                            <p class="text-sm text-brand-gray-dark">Complete todos los campos requeridos (*)</p>
+                        </div>
+                        <button type="button" onclick="showView('dashboard')" class="text-brand-gray-dark hover:text-brand-black text-2xl">
+                            ✕
+                        </button>
+                    </div>
+
+                    <!-- Formulario Simple de Una Sola Página -->
+                    <div class="bg-white rounded-xl shadow-sm p-6 mb-6">
+                        <div class="flex items-center justify-between relative">
+                            <!-- Progress Line -->
+                            <div class="absolute top-5 left-0 right-0 h-1 bg-brand-gray-medium -z-10">
+                                <div id="progressBar" class="h-full bg-brand-primary transition-all duration-500" style="width: 25%"></div>
+                            </div>
+
+                            <!-- Step 1 -->
+                            <div class="step-container flex flex-col items-center relative bg-brand-gray-light px-4">
+                                <div id="step1Circle" class="step-circle w-10 h-10 rounded-full bg-brand-primary text-white flex items-center justify-center font-semibold text-sm mb-2 transition-all duration-300">
+                                    1
+                                </div>
+                                <span class="step-label text-xs font-medium text-brand-gray-dark text-center">Problema y<br>Oportunidad</span>
+                            </div>
+
+                            <!-- Step 2 -->
+                            <div class="step-container flex flex-col items-center relative bg-brand-gray-light px-4">
+                                <div id="step2Circle" class="step-circle w-10 h-10 rounded-full bg-brand-gray-medium text-white flex items-center justify-center font-semibold text-sm mb-2 transition-all duration-300">
+                                    2
+                                </div>
+                                <span class="step-label text-xs font-medium text-brand-gray-dark text-center">Equipo y<br>Responsables</span>
+                            </div>
+
+                            <!-- Step 3 -->
+                            <div class="step-container flex flex-col items-center relative bg-brand-gray-light px-4">
+                                <div id="step3Circle" class="step-circle w-10 h-10 rounded-full bg-brand-gray-medium text-white flex items-center justify-center font-semibold text-sm mb-2 transition-all duration-300">
+                                    3
+                                </div>
+                                <span class="step-label text-xs font-medium text-brand-gray-dark text-center">Solución<br>Técnica</span>
+                            </div>
+
+                            <!-- Step 4 -->
+                            <div class="step-container flex flex-col items-center relative bg-brand-gray-light px-4">
+                                <div id="step4Circle" class="step-circle w-10 h-10 rounded-full bg-brand-gray-medium text-white flex items-center justify-center font-semibold text-sm mb-2 transition-all duration-300">
+                                    4
+                                </div>
+                                <span class="step-label text-xs font-medium text-brand-gray-dark text-center">Evaluación<br>Económica</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Form Container -->
+                    <form id="multiPhaseForm" class="bg-white rounded-xl shadow-sm p-8">
+                        <!-- Phase 1: Problema y Oportunidad -->
+                        <div id="phase1" class="phase-content">
+                            <h2 class="text-2xl font-bold text-brand-black mb-6 flex items-center">
+                                <span class="w-8 h-8 rounded-full bg-brand-primary text-white flex items-center justify-center text-sm mr-3">1</span>
+                                Problema y Oportunidad
+                            </h2>
+
+                            <div class="space-y-6">
+                                <!-- Datos Básicos -->
+                                <div class="pb-6 border-b border-brand-gray-medium">
+                                    <h3 class="text-lg font-semibold text-brand-black mb-4">Datos Básicos</h3>
+                                    
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-brand-gray-dark mb-2">Nombre de la Iniciativa *</label>
+                                            <input type="text" id="p_nombre" name="nombre" required
+                                                   class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-brand-gray-dark mb-2">Vertical *</label>
+                                            <select id="p_vertical" name="vertical" required
+                                                    class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary">
+                                                <option value="">Seleccione...</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-medium text-brand-gray-dark mb-2">Descripción Breve *</label>
+                                        <textarea id="p_descripcion" name="descripcion" required rows="3"
+                                                  class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                                                  placeholder="Describa brevemente la iniciativa..."></textarea>
+                                    </div>
+
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <!-- Gerencia (solo para admins) -->
+                                        <div id="p_gerenciaContainer" class="hidden">
+                                            <label class="block text-sm font-medium text-brand-gray-dark mb-2">Gerencia *</label>
+                                            <select id="p_id_gerencia" name="id_gerencia"
+                                                    class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary">
+                                                <option value="">Seleccione...</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-sm font-medium text-brand-gray-dark mb-2">Proceso *</label>
+                                            <select id="p_id_proceso" name="id_proceso" required
+                                                    class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary">
+                                                <option value="">Seleccione...</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label class="block text-sm font-medium text-brand-gray-dark mb-2">Fecha de Solicitud *</label>
+                                            <input type="date" id="p_fecha_pedido" name="fecha_pedido_iniciativa" required
+                                                   class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Problema y Dolor -->
+                                <div class="pb-6 border-b border-brand-gray-medium">
+                                    <h3 class="text-lg font-semibold text-brand-black mb-4">Problema y Dolor</h3>
+                                    
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-medium text-brand-gray-dark mb-2">¿Cuál es el problema o dolor? *</label>
+                                        <textarea id="f1_problema_dolor" name="f1_problema_dolor" required rows="3"
+                                                  class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                                                  placeholder="Describa el problema que resuelve esta iniciativa..."></textarea>
+                                    </div>
+
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-brand-gray-dark mb-2">Métrica del Dolor Actual *</label>
+                                            <input type="number" id="f1_metrica_dolor" name="f1_metrica_dolor" required step="0.01"
+                                                   class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                                                   placeholder="Ej: 1500">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-brand-gray-dark mb-2">Unidad de Métrica *</label>
+                                            <select id="f1_unidad_metrica" name="f1_unidad_metrica" required
+                                                    class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary">
+                                                <option value="">Seleccione...</option>
+                                                <option value="Horas">Horas</option>
+                                                <option value="%">Porcentaje (%)</option>
+                                                <option value="COP">Pesos COP</option>
+                                                <option value="Errores">Errores</option>
+                                                <option value="Casos">Casos</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Solución y Alcance -->
+                                <div>
+                                    <h3 class="text-lg font-semibold text-brand-black mb-4">Solución y Alcance</h3>
+                                    
+                                    <div class="mb-4">
+                                        <label class="block text-sm font-medium text-brand-gray-dark mb-2">¿Qué proceso se automatiza o mejora? *</label>
+                                        <input type="text" id="f1_proceso_solucion" name="f1_proceso_solucion" required
+                                               class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                                               placeholder="Ej: Proceso de onboarding de empleados">
+                                    </div>
+
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-brand-gray-dark mb-2">Volumen Mensual</label>
+                                            <input type="number" id="f1_volumen_mensual" name="f1_volumen_mensual" step="1"
+                                                   class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                                                   placeholder="Ej: 200 transacciones/mes">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-brand-gray-dark mb-2">Usuario Final *</label>
+                                            <input type="text" id="f1_usuario_final" name="f1_usuario_final" required
+                                                   class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                                                   placeholder="Ej: Colaboradores de RH">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Phase 2: Equipo y Responsables -->
+                        <div id="phase2" class="phase-content hidden">
+                            <h2 class="text-2xl font-bold text-brand-black mb-6 flex items-center">
+                                <span class="w-8 h-8 rounded-full bg-brand-primary text-white flex items-center justify-center text-sm mr-3">2</span>
+                                Equipo y Responsables
+                            </h2>
+
+                            <div class="space-y-6">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-brand-gray-dark mb-2">Responsable del Negocio *</label>
+                                        <input type="text" id="f2_responsable_nombre" name="f2_responsable_nombre" required
+                                               class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                                               placeholder="Nombre completo">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-brand-gray-dark mb-2">Cargo del Responsable *</label>
+                                        <input type="text" id="f2_responsable_cargo" name="f2_responsable_cargo" required
+                                               class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                                               placeholder="Ej: Gerente de Gestión Humana">
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-brand-gray-dark mb-2">Product Owner</label>
+                                        <input type="text" id="f2_po_nombre" name="f2_po_nombre"
+                                               class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                                               placeholder="Nombre del PO">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-brand-gray-dark mb-2">Líder Técnico</label>
+                                        <input type="text" id="f2_lider_tecnico_nombre" name="f2_lider_tecnico_nombre"
+                                               class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                                               placeholder="Nombre del líder técnico">
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-brand-gray-dark mb-2">Áreas Involucradas</label>
+                                    <input type="text" id="f2_areas_involucradas" name="f2_areas_involucradas"
+                                           class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                                           placeholder="Ej: Legal, Operaciones, TI (separadas por comas)">
+                                    <p class="text-xs text-brand-gray-dark mt-1">Separe las áreas con comas</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Phase 3: Solución Técnica -->
+                        <div id="phase3" class="phase-content hidden">
+                            <h2 class="text-2xl font-bold text-brand-black mb-6 flex items-center">
+                                <span class="w-8 h-8 rounded-full bg-brand-primary text-white flex items-center justify-center text-sm mr-3">3</span>
+                                Solución Técnica
+                            </h2>
+
+                            <div class="space-y-6">
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-brand-gray-dark mb-2">Tipo de Solución *</label>
+                                        <select id="f3_tipo_solucion" name="f3_tipo_solucion" required
+                                                class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary">
+                                            <option value="">Seleccione...</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-brand-gray-dark mb-2">Infraestructura *</label>
+                                        <select id="f3_infraestructura" name="f3_infraestructura" required
+                                                class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary">
+                                            <option value="">Seleccione...</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-brand-gray-dark mb-2">CAPEX - Inversión Inicial (COP)</label>
+                                        <input type="number" id="f3_capex_cop" name="f3_capex_cop" step="0.01"
+                                               class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                                               placeholder="Ej: 50000000">
+                                        <p class="text-xs text-brand-gray-dark mt-1">Costo de desarrollo inicial</p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-brand-gray-dark mb-2">OPEX - Costo Anual (COP)</label>
+                                        <input type="number" id="f3_opex_anual_cop" name="f3_opex_anual_cop" step="0.01"
+                                               class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                                               placeholder="Ej: 12000000">
+                                        <p class="text-xs text-brand-gray-dark mt-1">Costo de mantenimiento anual</p>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-sm font-medium text-brand-gray-dark mb-2">Observaciones Técnicas</label>
+                                    <textarea id="f3_observacion_tec" name="f3_observacion_tec" rows="3"
+                                              class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                                              placeholder="Notas del arquitecto o líder técnico..."></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Phase 4: Evaluación Económica -->
+                        <div id="phase4" class="phase-content hidden">
+                            <h2 class="text-2xl font-bold text-brand-black mb-6 flex items-center">
+                                <span class="w-8 h-8 rounded-full bg-brand-primary text-white flex items-center justify-center text-sm mr-3">4</span>
+                                Evaluación Económica
+                            </h2>
+
+                            <div class="space-y-6">
+                                <!-- E1: Ahorro en Gastos -->
+                                <div class="bg-brand-gray-light p-4 rounded-lg">
+                                    <h3 class="text-sm font-semibold text-brand-black mb-3">E1: Ahorro Directo en Gastos</h3>
+                                    <label class="block text-sm font-medium text-brand-gray-dark mb-2">Ahorro anual (COP)</label>
+                                    <input type="number" id="f4_e1_ahorro_gastos" name="f4_e1_ahorro_gastos" step="0.01"
+                                           class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                                           placeholder="Ej: 15000000">
+                                    <p class="text-xs text-brand-gray-dark mt-1">Reducción en licencias, proveedores externos, etc.</p>
+                                </div>
+
+                                <!-- E2: Ahorro por Eficiencia -->
+                                <div class="bg-brand-gray-light p-4 rounded-lg">
+                                    <h3 class="text-sm font-semibold text-brand-black mb-3">E2: Ahorro por Eficiencia Operativa</h3>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-brand-gray-dark mb-2">Horas ahorradas al mes</label>
+                                            <input type="number" id="f4_e2_horas_ahorradas" name="f4_e2_horas_ahorradas" step="0.01"
+                                                   class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                                                   placeholder="Ej: 120">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-brand-gray-dark mb-2">Costo por hora del rol (COP)</label>
+                                            <input type="number" id="f4_e2_costo_hora_rol" name="f4_e2_costo_hora_rol" step="0.01"
+                                                   class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                                                   placeholder="Ej: 50000">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- E3: Costo Evitado -->
+                                <div class="bg-brand-gray-light p-4 rounded-lg">
+                                    <h3 class="text-sm font-semibold text-brand-black mb-3">E3: Costo Evitado por Riesgo/Efectividad</h3>
+                                    <label class="block text-sm font-medium text-brand-gray-dark mb-2">Ahorro anual (COP)</label>
+                                    <input type="number" id="f4_e3_costo_evitado" name="f4_e3_costo_evitado" step="0.01"
+                                           class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                                           placeholder="Ej: 8000000">
+                                    <p class="text-xs text-brand-gray-dark mt-1">Reducción de multas, errores, riesgos operacionales</p>
+                                </div>
+
+                                <!-- E4: Factor de Adopción -->
+                                <div class="bg-brand-gray-light p-4 rounded-lg">
+                                    <h3 class="text-sm font-semibold text-brand-black mb-3">E4: Factor de Adopción/Experiencia</h3>
+                                    <label class="block text-sm font-medium text-brand-gray-dark mb-2">Porcentaje de adopción esperado (%)</label>
+                                    <input type="number" id="f4_e4_adopcion_pct" name="f4_e4_adopcion_pct" min="0" max="100" step="1"
+                                           class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary"
+                                           placeholder="Ej: 80">
+                                    <p class="text-xs text-brand-gray-dark mt-1">Entre 0 y 100%</p>
+                                </div>
+
+                                <!-- Preview de Cálculos -->
+                                <div class="bg-brand-primary bg-opacity-10 border border-brand-primary p-6 rounded-lg">
+                                    <h3 class="text-lg font-semibold text-brand-black mb-4">📊 Resumen de Evaluación</h3>
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div class="text-center">
+                                            <p class="text-sm text-brand-gray-dark mb-1">Beneficio Bruto</p>
+                                            <p id="preview_beneficio_bruto" class="text-2xl font-bold text-brand-black">$0</p>
+                                        </div>
+                                        <div class="text-center">
+                                            <p class="text-sm text-brand-gray-dark mb-1">Beneficio Ajustado</p>
+                                            <p id="preview_beneficio_ajustado" class="text-2xl font-bold text-brand-black">$0</p>
+                                        </div>
+                                        <div class="text-center">
+                                            <p class="text-sm text-brand-gray-dark mb-1">ROI</p>
+                                            <p id="preview_roi" class="text-2xl font-bold text-brand-primary">0%</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Navigation Buttons -->
+                        <div class="flex items-center justify-between mt-8 pt-6 border-t border-brand-gray-medium">
+                            <button type="button" id="btnPrevPhase" class="px-6 py-3 border border-brand-gray-medium text-brand-gray-dark rounded-lg hover:bg-brand-gray-light transition-colors hidden">
+                                ← Anterior
+                            </button>
+                            
+                            <div class="flex-1"></div>
+
+                            <button type="button" id="btnCancelWizard" class="px-6 py-3 border border-brand-gray-medium text-brand-gray-dark rounded-lg hover:bg-brand-gray-light transition-colors mr-3">
+                                Cancelar
+                            </button>
+
+                            <button type="button" id="btnNextPhase" class="px-6 py-3 bg-brand-primary text-white rounded-lg hover:bg-brand-green-medium transition-colors font-semibold">
+                                Siguiente →
+                            </button>
+
+                            <button type="submit" id="btnSubmitInitiative" class="px-6 py-3 bg-brand-primary text-white rounded-lg hover:bg-brand-green-medium transition-colors font-semibold hidden">
+                                💾 Guardar Iniciativa
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Detail View -->
+            <div id="detailView" class="hidden">
+                <div class="bg-white rounded-xl shadow-sm p-8">
+                    <div class="flex items-center justify-between mb-6">
+                        <button id="backBtn" class="flex items-center space-x-2 text-brand-gray-dark hover:text-brand-black transition-colors">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path>
+                            </svg>
+                            <span class="font-medium">Volver</span>
+                        </button>
+                        <div id="detailActions" class="flex space-x-3">
+                            <!-- Action buttons will be populated here -->
+                        </div>
+                    </div>
+                    <div id="initiativeDetail">
+                        <!-- Initiative details will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- DEPRECATED: Initiative Form Modal - Mantenido por compatibilidad pero ya no se usa -->
+    <!-- La funcionalidad de creación ahora está en createInitiativeView (wizard multi-fase) -->
+    <div id="formModal" class="hidden fixed inset-0 bg-brand-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div class="p-8">
+                <div class="flex justify-between items-center mb-8">
+                    <h2 id="formTitle" class="text-2xl font-bold text-brand-black">Nueva Iniciativa</h2>
+                    <button id="closeFormBtn" class="text-brand-gray-dark hover:text-brand-black transition-colors">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+
+                <form id="initiativeForm" class="space-y-6">
+                    <!-- Basic Information -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-brand-gray-dark mb-2">Nombre *</label>
+                            <input type="text" id="name" name="name" required
+                                   class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-brand-gray-dark mb-2">Responsable *</label>
+                            <input type="text" id="doer" name="doer" required
+                                   class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent bg-white">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-brand-gray-dark mb-2">Descripción *</label>
+                        <textarea id="description" name="description" required rows="3"
+                                  class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent bg-white"></textarea>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-brand-gray-dark mb-2">Fecha Pedido Iniciativa *</label>
+                            <input type="date" id="fechaPedido" name="fechaPedido" required
+                                   class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent bg-white">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-brand-gray-dark mb-2">Estado *</label>
+                            <div class="relative">
+                                <div id="estadoSelector" class="w-full min-h-[42px] px-4 py-2.5 border border-brand-gray-medium rounded-lg bg-white cursor-pointer hover:border-brand-primary transition-colors">
+                                    <div class="flex items-center justify-between">
+                                        <span id="estadoSelectedText" class="text-brand-black">Sin Iniciar</span>
+                                        <svg class="w-5 h-5 text-brand-gray-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+                                
+                                <!-- Dropdown Menu -->
+                                <div id="estadoDropdown" class="hidden absolute z-50 w-full mt-2 bg-white border border-brand-gray-medium rounded-lg shadow-xl overflow-hidden">
+                                    <div id="estadoOptions" class="p-2">
+                                        <div class="estado-option p-3 hover:bg-brand-gray-light rounded-lg cursor-pointer transition-colors" data-value="sin iniciar">
+                                            <span class="text-sm text-brand-black">Sin Iniciar</span>
+                                        </div>
+                                        <div class="estado-option p-3 hover:bg-brand-gray-light rounded-lg cursor-pointer transition-colors" data-value="en desarrollo">
+                                            <span class="text-sm text-brand-black">En Desarrollo</span>
+                                        </div>
+                                        <div class="estado-option p-3 hover:bg-brand-gray-light rounded-lg cursor-pointer transition-colors" data-value="productivo">
+                                            <span class="text-sm text-brand-black">Productivo</span>
+                                        </div>
+                                        <div class="estado-option p-3 hover:bg-brand-gray-light rounded-lg cursor-pointer transition-colors" data-value="cancelada">
+                                            <span class="text-sm text-brand-black">Cancelada</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <input type="hidden" id="estado" name="estado" value="sin iniciar" required>
+                        </div>
+                    </div>
+
+                    <!-- Gerencia Dropdown (solo visible para admins) -->
+                    <div id="gerenciaFieldContainer" class="hidden">
+                        <label class="block text-sm font-medium text-brand-gray-dark mb-2">Vicepresidencia ó gerencias impactadas *</label>
+                        <div class="relative">
+                            <div id="gerenciaSelector" class="w-full min-h-[42px] px-4 py-2 border border-brand-gray-medium rounded-lg bg-white cursor-pointer hover:border-brand-primary transition-colors">
+                                <div id="gerenciaSelectedTags" class="flex flex-wrap gap-2 mb-2"></div>
+                                <div class="flex items-center justify-between">
+                                    <span id="gerenciaPlaceholder" class="text-brand-gray-dark text-sm">Seleccione vp ó gerencias...</span>
+                                    <svg class="w-5 h-5 text-brand-gray-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                    </svg>
+                                </div>
+                            </div>
+                            
+                            <!-- Dropdown Menu -->
+                            <div id="gerenciaDropdown" class="hidden absolute z-50 w-full mt-2 bg-white border border-brand-gray-medium rounded-lg shadow-xl max-h-80 overflow-hidden">
+                                <div class="p-3 border-b border-brand-gray-medium">
+                                    <input type="text" id="gerenciaSearch" placeholder="Buscar vp o gerencias..." 
+                                           class="w-full px-3 py-2 text-sm border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent">
+                                </div>
+                                <div id="gerenciaOptions" class="max-h-60 overflow-y-auto p-2">
+                                    <!-- Options will be populated here -->
+                                </div>
+                            </div>
+                        </div>
+                        <input type="hidden" id="idGerencia" name="idGerencia">
+                    </div>
+
+                    <!-- Campo oculto para usuarios normales -->
+                    <input type="hidden" id="idGerenciaHidden" name="idGerenciaHidden">
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-brand-gray-dark mb-2">Procesos *</label>
+                            <div class="relative">
+                                <div id="procesoSelector" class="w-full min-h-[42px] px-4 py-2 border border-brand-gray-medium rounded-lg bg-white cursor-pointer hover:border-brand-primary transition-colors">
+                                    <div id="procesoSelectedTags" class="flex flex-wrap gap-2 mb-2"></div>
+                                    <div class="flex items-center justify-between">
+                                        <span id="procesoPlaceholder" class="text-brand-gray-dark text-sm">Seleccione procesos...</span>
+                                        <svg class="w-5 h-5 text-brand-gray-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                                        </svg>
+                                    </div>
+                                </div>
+                                
+                                <!-- Dropdown Menu -->
+                                <div id="procesoDropdown" class="hidden absolute z-50 w-full mt-2 bg-white border border-brand-gray-medium rounded-lg shadow-xl max-h-80 overflow-hidden">
+                                    <div class="p-3 border-b border-brand-gray-medium">
+                                        <input type="text" id="procesoSearch" placeholder="Buscar procesos..." 
+                                               class="w-full px-3 py-2 text-sm border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent">
+                                    </div>
+                                    <div id="procesoOptions" class="max-h-60 overflow-y-auto p-2">
+                                        <!-- Options will be populated here -->
+                                    </div>
+                                </div>
+                            </div>
+                            <input type="hidden" id="proceso" name="proceso" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-brand-gray-dark mb-2">Oportunidad *</label>
+                            <input type="text" id="oportunidad" name="oportunidad" required
+                                   class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent bg-white"
+                                   placeholder="Ej: Reducción de carga operativa">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-brand-gray-dark mb-2">Usuario Final *</label>
+                        <input type="text" id="usuarioFinal" name="usuarioFinal" required
+                               class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent bg-white"
+                               placeholder="Funcionarios, clientes, intermediarios, etc.">
+                    </div>
+
+                    <!-- Scoring Section -->
+                    <div class="border-t pt-6 mt-6">
+                        <h3 class="text-lg font-semibold text-brand-black mb-6">Criterios de Evaluación</h3>
+
+                        <!-- Impact Criteria -->
+                        <div class="mb-6">
+                            <h4 class="text-md font-medium text-brand-gray-dark mb-4">Impacto y Valor</h4>
+                            <div class="space-y-4">
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-brand-gray-dark mb-2">Impacto en Pilar Estratégico</label>
+                                        <input type="range" id="strategicPillarImpact" name="strategicPillarImpact" min="1" max="5" value="3"
+                                               class="w-full h-2 bg-brand-gray-medium rounded-lg appearance-none cursor-pointer slider">
+                                        <div class="flex justify-between text-xs text-brand-gray-dark mt-1">
+                                            <span>1</span>
+                                            <span id="strategicPillarImpactValue" class="font-semibold text-brand-primary">3</span>
+                                            <span>5</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-brand-gray-dark mb-2">Resolución de Dolor/Problema</label>
+                                        <input type="range" id="painResolutionImpact" name="painResolutionImpact" min="1" max="5" value="3"
+                                               class="w-full h-2 bg-brand-gray-medium rounded-lg appearance-none cursor-pointer slider">
+                                        <div class="flex justify-between text-xs text-brand-gray-dark mt-1">
+                                            <span>1</span>
+                                            <span id="painResolutionImpactValue" class="font-semibold text-brand-primary">3</span>
+                                            <span>5</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-brand-gray-dark mb-2">Alcance e Impacto</label>
+                                        <input type="range" id="scopeImpact" name="scopeImpact" min="1" max="5" value="3"
+                                               class="w-full h-2 bg-brand-gray-medium rounded-lg appearance-none cursor-pointer slider">
+                                        <div class="flex justify-between text-xs text-brand-gray-dark mt-1">
+                                            <span>1</span>
+                                            <span id="scopeImpactValue" class="font-semibold text-brand-primary">3</span>
+                                            <span>5</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Viability Criteria -->
+                        <div class="mb-6">
+                            <h4 class="text-md font-medium text-brand-gray-dark mb-4">Viabilidad</h4>
+                            <div class="space-y-4">
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-brand-gray-dark mb-2">Viabilidad Técnica/Complejidad</label>
+                                        <input type="range" id="complexityViability" name="complexityViability" min="1" max="5" value="3"
+                                               class="w-full h-2 bg-brand-gray-medium rounded-lg appearance-none cursor-pointer slider">
+                                        <div class="flex justify-between text-xs text-brand-gray-dark mt-1">
+                                            <span>1</span>
+                                            <span id="complexityViabilityValue" class="font-semibold text-brand-primary">3</span>
+                                            <span>5</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-brand-gray-dark mb-2">Reutilización/Escalabilidad</label>
+                                        <input type="range" id="reusabilityViability" name="reusabilityViability" min="1" max="5" value="3"
+                                               class="w-full h-2 bg-brand-gray-medium rounded-lg appearance-none cursor-pointer slider">
+                                        <div class="flex justify-between text-xs text-brand-gray-dark mt-1">
+                                            <span>1</span>
+                                            <span id="reusabilityViabilityValue" class="font-semibold text-brand-primary">3</span>
+                                            <span>5</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-brand-gray-dark mb-2">Disponibilidad de Datos</label>
+                                        <input type="range" id="dataViability" name="dataViability" min="1" max="5" value="3"
+                                               class="w-full h-2 bg-brand-gray-medium rounded-lg appearance-none cursor-pointer slider">
+                                        <div class="flex justify-between text-xs text-brand-gray-dark mt-1">
+                                            <span>1</span>
+                                            <span id="dataViabilityValue" class="font-semibold text-brand-primary">3</span>
+                                            <span>5</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Value Criteria -->
+                        <div class="mb-6">
+                            <h4 class="text-md font-medium text-brand-gray-dark mb-4">Valor de Negocio</h4>
+                            <div class="space-y-4">
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-brand-gray-dark mb-2">Reducción de Trabajo Manual</label>
+                                        <input type="range" id="manualReductionValue" name="manualReductionValue" min="1" max="5" value="3"
+                                               class="w-full h-2 bg-brand-gray-medium rounded-lg appearance-none cursor-pointer slider">
+                                        <div class="flex justify-between text-xs text-brand-gray-dark mt-1">
+                                            <span>1</span>
+                                            <span id="manualReductionValueValue" class="font-semibold text-brand-primary">3</span>
+                                            <span>5</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-brand-gray-dark mb-2">Reducción de Costos</label>
+                                        <input type="range" id="costReductionValue" name="costReductionValue" min="1" max="5" value="3"
+                                               class="w-full h-2 bg-brand-gray-medium rounded-lg appearance-none cursor-pointer slider">
+                                        <div class="flex justify-between text-xs text-brand-gray-dark mt-1">
+                                            <span>1</span>
+                                            <span id="costReductionValueValue" class="font-semibold text-brand-primary">3</span>
+                                            <span>5</span>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-brand-gray-dark mb-2">Mejora de Experiencia</label>
+                                        <input type="range" id="exImprovementValue" name="exImprovementValue" min="1" max="5" value="3"
+                                               class="w-full h-2 bg-brand-gray-medium rounded-lg appearance-none cursor-pointer slider">
+                                        <div class="flex justify-between text-xs text-brand-gray-dark mt-1">
+                                            <span>1</span>
+                                            <span id="exImprovementValueValue" class="font-semibold text-brand-primary">3</span>
+                                            <span>5</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quantifiable Metrics -->
+                        <div class="mb-6">
+                            <h4 class="text-md font-medium text-brand-gray-dark mb-4">Métricas Cuantificables</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-brand-gray-dark mb-2">Horas Manuales Ahorradas (mensual)</label>
+                                    <input type="text" id="manualHoursSaved" name="manualHoursSaved" placeholder="ej. 40 horas/mes"
+                                           class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent bg-white">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-brand-gray-dark mb-2">Ahorro en Millones COP (mensual)</label>
+                                    <input type="text" id="costSavingAmount" name="costSavingAmount" placeholder="ej. 5"
+                                           class="w-full px-4 py-2.5 border border-brand-gray-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent bg-white">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Form Actions -->
+                    <div class="flex justify-end space-x-4 pt-6 border-t">
+                        <button type="button" id="cancelFormBtn" class="px-6 py-2.5 border-2 border-brand-gray-medium text-brand-gray-dark rounded-lg hover:bg-brand-gray-light transition-colors font-medium">
+                            Cancelar
+                        </button>
+                        <button type="submit" id="saveFormBtn" class="px-6 py-2.5 bg-brand-primary text-white rounded-lg hover:bg-brand-green-light transition-colors font-medium shadow-sm">
+                            Guardar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="hidden fixed inset-0 bg-brand-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div class="bg-white rounded-xl w-full max-w-md shadow-2xl">
+            <div class="p-6">
+                <div class="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-red-100 rounded-full">
+                    <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                </div>
+                
+                <h3 class="text-xl font-bold text-brand-black text-center mb-2">
+                    ¿Eliminar Iniciativa?
+                </h3>
+                
+                <p class="text-brand-gray-dark text-center mb-6">
+                    Esta acción no se puede deshacer. La iniciativa se eliminará permanentemente del sistema.
+                </p>
+                
+                <div class="flex space-x-3">
+                    <button id="cancelDeleteBtn" class="flex-1 px-4 py-2.5 border-2 border-brand-gray-medium text-brand-gray-dark rounded-lg hover:bg-brand-gray-light transition-colors font-medium">
+                        Cancelar
+                    </button>
+                    <button id="confirmDeleteBtn" class="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium shadow-sm">
+                        Eliminar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div id="notification" class="hidden fixed bottom-5 right-5 py-4 px-6 rounded-lg shadow-2xl z-50 max-w-md">
+        <div class="flex items-center space-x-3">
+            <svg id="notificationIcon" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <span id="notificationMessage" class="font-medium"></span>
+        </div>
+    </div>
+
+    <!-- Application Scripts -->
+    <?!= include('Scripts') ?>
+</body>
+</html>

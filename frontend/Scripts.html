@@ -1,0 +1,3353 @@
+<script>
+    // Application State
+    let currentView = 'dashboard';
+    let currentDashboardTab = 'general';
+    let initiatives = [];
+    let filteredInitiatives = [];
+    let currentInitiative = null;
+    let isAdmin = false;
+    let userEmail = '';
+    let priorityChart = null;
+    let hoursChart = null;
+    let savingsChart = null;
+    let gerenciaDonutChart = null;
+    let procesoDonutChart = null;
+    let hoursProcesoChart = null;
+    let savingsProcesoChart = null;
+    let gerencias = [];
+    let procesos = [];
+    let currentUserGerencia = '';
+    let currentFilters = {
+        gerencias: [],
+        procesos: [],
+        responsables: []
+    };
+
+    // Initialize the application
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('📄 DOM Content Loaded - Iniciando configuración...');
+        try {
+            setupEventListeners();
+            console.log('✓ Event listeners configurados');
+            initializeApp();
+        } catch (error) {
+            console.error('❌ Error en DOMContentLoaded:', error);
+        }
+    });
+
+    async function initializeApp() {
+        console.log('🚀 Iniciando aplicación...');
+        try {
+            showLoading(true);
+            console.log('✓ Loading state activado');
+
+            // Primero verificar que el usuario esté autorizado
+            console.log('📝 Cargando información de usuario...');
+            await loadUserInfo();
+            console.log('✓ Usuario cargado exitosamente');
+
+            // Cargar catálogos maestros
+            console.log('📚 Cargando catálogos...');
+            await Promise.all([
+                loadGerencias(),
+                loadProcesos()
+            ]);
+            console.log('✓ Catálogos cargados');
+
+            // Si llegamos aquí, el usuario está autorizado
+            console.log('📊 Cargando iniciativas...');
+            await loadInitiatives();
+            console.log('✓ Iniciativas cargadas:', initiatives.length);
+
+            console.log('🎨 Mostrando vista dashboard...');
+            showView('dashboard');
+
+            console.log('📈 Actualizando dashboard...');
+            // Inicializar filteredInitiatives con todas las iniciativas
+            filteredInitiatives = [...initiatives];
+            
+            // Configurar filtros DESPUÉS de cargar los datos
+            console.log('🔍 Configurando filtros del dashboard...');
+            setupDashboardFilters();
+            
+            updateDashboard();
+            console.log('✅ Aplicación inicializada correctamente');
+
+        } catch (error) {
+            console.error('❌ Error initializing app:', error);
+
+            // Verificar si es un error de autorización
+            if (error.message && error.message.includes('no autorizado')) {
+                console.log('🚫 Usuario no autorizado, mostrando mensaje');
+                showUnauthorizedMessage();
+            } else {
+                console.log('⚠️ Error general:', error.message);
+                showNotification('Error al cargar la aplicación: ' + error.message, 'error');
+            }
+        } finally {
+            console.log('🔄 Desactivando loading state...');
+            showLoading(false);
+            console.log('✓ Loading state desactivado');
+        }
+    }
+
+    function showUnauthorizedMessage() {
+        const loadingState = document.getElementById('loadingState');
+        loadingState.innerHTML = `
+            <div class="max-w-md mx-auto text-center">
+                <svg class="w-16 h-16 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+                <h2 class="text-2xl font-bold text-brand-black mb-4">Acceso No Autorizado</h2>
+                <p class="text-brand-gray-dark mb-6">
+                    Tu usuario no tiene permisos para acceder a esta aplicación.
+                </p>
+                <p class="text-sm text-brand-gray-dark mb-4">
+                    Si necesitas acceso, contacta a uno de los administradores:
+                </p>
+                <ul class="text-sm text-brand-gray-dark space-y-1 mb-6">
+                    <li>• Juan Bocanegra - juan.bocanegra@segurosbolivar.com</li>
+                    <li>• William Martínez - william.martinez@segurosbolivar.com</li>
+                    <li>• Saidy Bonilla - saidy.bonilla@segurosbolivar.com</li>
+                </ul>
+                <div class="bg-brand-gray-light p-4 rounded-lg text-left">
+                    <p class="text-xs text-brand-gray-dark">
+                        <strong>Nota:</strong> Solo los usuarios autorizados en el sistema pueden acceder a Nexus AI.
+                    </p>
+                </div>
+            </div>
+        `;
+        loadingState.classList.remove('hidden');
+    }
+
+    function setupEventListeners() {
+        console.log('🎯 Configurando event listeners...');
+        try {
+            // Sidebar toggle
+            console.log('  - Configurando toggle del sidebar...');
+            document.getElementById('sidebarToggle').addEventListener('click', toggleSidebar);
+
+            // Navigation
+            console.log('  - Configurando navegación...');
+            document.getElementById('navDashboard').addEventListener('click', () => showView('dashboard'));
+            document.getElementById('navLista').addEventListener('click', () => showView('list'));
+            document.getElementById('navCreateInitiative').addEventListener('click', () => showView('createInitiative'));
+            document.getElementById('backBtn').addEventListener('click', () => showView(currentView));
+
+            // Dashboard Tabs
+            console.log('  - Configurando tabs del dashboard...');
+            document.getElementById('tabGeneral').addEventListener('click', () => switchDashboardTab('general'));
+            document.getElementById('tabClasificacion').addEventListener('click', () => switchDashboardTab('clasificacion'));
+
+            // Formulario Simple de Crear Iniciativa
+            console.log('  - Configurando formulario simple de iniciativa...');
+            const simpleForm = document.getElementById('simpleInitiativeForm');
+            if (simpleForm) {
+                simpleForm.addEventListener('submit', handleSimpleFormSubmit);
+                console.log('    ✅ Event listener del formulario simple configurado');
+            } else {
+                console.warn('    ⚠️ No se encontró simpleInitiativeForm');
+            }
+            
+            // Cálculos en vivo Fase 4
+            ['f4_e1_ahorro_gastos', 'f4_e2_horas_ahorradas', 'f4_e2_costo_hora_rol', 
+             'f4_e3_costo_evitado', 'f4_e4_adopcion_pct', 'f3_capex_cop'].forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    element.addEventListener('input', updatePhase4Preview);
+                }
+            });
+
+            // Form modal (DEPRECATED - mantenido por compatibilidad)
+            console.log('  - Configurando formulario modal (deprecated)...');
+            document.getElementById('closeFormBtn').addEventListener('click', closeForm);
+            document.getElementById('cancelFormBtn').addEventListener('click', closeForm);
+
+            // Delete modal
+            console.log('  - Configurando modal de eliminación...');
+            document.getElementById('cancelDeleteBtn').addEventListener('click', closeDeleteModal);
+
+            // Form submission
+            console.log('  - Configurando envío de formulario...');
+            document.getElementById('initiativeForm').addEventListener('submit', handleFormSubmit);
+
+            // Setup slider listeners
+            console.log('  - Configurando sliders...');
+            setupSliders();
+
+            console.log('✓ Todos los event listeners configurados exitosamente');
+        } catch (error) {
+            console.error('❌ Error configurando event listeners:', error);
+            throw error;
+        }
+    }
+
+    function setupSliders() {
+        const sliders = [
+            'strategicPillarImpact', 'painResolutionImpact', 'scopeImpact',
+            'complexityViability', 'reusabilityViability', 'dataViability',
+            'manualReductionValue', 'costReductionValue', 'exImprovementValue'
+        ];
+
+        sliders.forEach(slider => {
+            const element = document.getElementById(slider);
+            const valueSpan = document.getElementById(slider + 'Value');
+            
+            element.addEventListener('input', function() {
+                valueSpan.textContent = this.value;
+            });
+        });
+    }
+
+    // API Functions
+    async function loadInitiatives() {
+        console.log('🔌 Llamando a getInitiativesForWeb()...');
+        return new Promise((resolve, reject) => {
+            google.script.run
+                .withSuccessHandler((result) => {
+                    console.log('✓ Respuesta recibida de getInitiativesForWeb:', result);
+                    const response = typeof result === 'string' ? JSON.parse(result) : result;
+                    console.log('✓ Respuesta parseada:', response);
+                    if (response.success) {
+                        initiatives = response.data || [];
+                        console.log('✓ Iniciativas asignadas al array:', initiatives.length);
+                        resolve();
+                    } else {
+                        console.error('❌ Error en respuesta:', response.error);
+                        reject(new Error(response.error));
+                    }
+                })
+                .withFailureHandler((error) => {
+                    console.error('❌ Error en llamada a getInitiativesForWeb:', error);
+                    reject(error);
+                })
+                .getInitiativesForWeb();
+        });
+    }
+
+    async function loadUserInfo() {
+        console.log('🔌 Llamando a getUserInfoForWeb()...');
+        return new Promise((resolve, reject) => {
+            google.script.run
+                .withSuccessHandler((result) => {
+                    console.log('✓ Respuesta recibida de getUserInfoForWeb:', result);
+                    const response = typeof result === 'string' ? JSON.parse(result) : result;
+                    console.log('✓ Respuesta parseada:', response);
+
+                    // Verificar si el usuario está autorizado
+                    if (response.success && response.data.isAuthorized) {
+                        userEmail = response.data.correo || response.data.email;
+                        isAdmin = response.data.isAdmin;
+                        console.log('✓ Usuario autorizado:', userEmail, '| Admin:', isAdmin);
+
+                        // Actualizar badge de usuario en el header
+                        updateUserBadge(response.data);
+
+                        resolve();
+                    } else {
+                        // Usuario no autorizado
+                        console.error('❌ Usuario no autorizado:', response.error);
+                        reject(new Error(response.error || 'Usuario no autorizado para acceder a la aplicación'));
+                    }
+                })
+                .withFailureHandler((error) => {
+                    console.error('❌ Error en llamada a getUserInfoForWeb:', error);
+                    reject(error);
+                })
+                .getUserInfoForWeb();
+        });
+    }
+
+    function updateUserBadge(userData) {
+        const userInitials = document.getElementById('userInitials');
+        const userName = document.getElementById('userName');
+        const userRole = document.getElementById('userRole');
+
+        if (userData && userData.isAuthorized) {
+            // Obtener iniciales del nombre
+            const nombre = userData.nombre || userData.email || 'Usuario';
+            const initials = nombre.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+
+            userInitials.textContent = initials;
+            userName.textContent = nombre;
+
+            const roleText = userData.isAdmin ? 'Administrador' : 'Usuario';
+            userRole.textContent = roleText;
+
+            // Guardar idGerencia en variable global para usar en el formulario
+            if (userData.idGerencia) {
+                currentUserGerencia = userData.idGerencia;
+            }
+        }
+    }
+
+    async function loadGerencias() {
+        console.log('🔌 Llamando a getGerenciasForWeb()...');
+        return new Promise((resolve, reject) => {
+            google.script.run
+                .withSuccessHandler((result) => {
+                    console.log('✓ Respuesta recibida de getGerenciasForWeb:', result);
+                    const response = typeof result === 'string' ? JSON.parse(result) : result;
+                    console.log('✓ Respuesta parseada:', response);
+                    if (response.success) {
+                        gerencias = response.data || [];
+                        console.log('✓ Gerencias asignadas:', gerencias.length);
+                        resolve();
+                    } else {
+                        console.error('❌ Error en respuesta:', response.error);
+                        reject(new Error(response.error));
+                    }
+                })
+                .withFailureHandler((error) => {
+                    console.error('❌ Error en llamada a getGerenciasForWeb:', error);
+                    reject(error);
+                })
+                .getGerenciasForWeb();
+        });
+    }
+
+    async function loadProcesos() {
+        console.log('🔌 Llamando a getProcesosForWeb()...');
+        return new Promise((resolve, reject) => {
+            google.script.run
+                .withSuccessHandler((result) => {
+                    console.log('✓ Respuesta recibida de getProcesosForWeb:', result);
+                    const response = typeof result === 'string' ? JSON.parse(result) : result;
+                    console.log('✓ Respuesta parseada:', response);
+                    if (response.success) {
+                        procesos = response.data || [];
+                        console.log('✓ Procesos asignados:', procesos.length);
+                        resolve();
+                    } else {
+                        console.error('❌ Error en respuesta:', response.error);
+                        reject(new Error(response.error));
+                    }
+                })
+                .withFailureHandler((error) => {
+                    console.error('❌ Error en llamada a getProcesosForWeb:', error);
+                    reject(error);
+                })
+                .getProcesosForWeb();
+        });
+    }
+
+    async function saveInitiative(formData) {
+        return new Promise((resolve, reject) => {
+            if (currentInitiative) {
+                // Actualizar iniciativa existente
+                google.script.run
+                    .withSuccessHandler((result) => {
+                        const response = typeof result === 'string' ? JSON.parse(result) : result;
+                        resolve(response);
+                    })
+                    .withFailureHandler(reject)
+                    .updateInitiativeFromWeb(currentInitiative.id, formData);
+            } else {
+                // Crear nueva iniciativa
+                google.script.run
+                    .withSuccessHandler((result) => {
+                        const response = typeof result === 'string' ? JSON.parse(result) : result;
+                        resolve(response);
+                    })
+                    .withFailureHandler(reject)
+                    .createInitiativeFromWeb(formData);
+            }
+        });
+    }
+
+    // View Management
+    function showView(view) {
+        console.log(`🔄 Cambiando vista a: ${view}`);
+        
+        // Hide loading state first
+        document.getElementById('loadingState').classList.add('hidden');
+        
+        // Hide all views
+        document.getElementById('dashboardView').classList.add('hidden');
+        document.getElementById('listView').classList.add('hidden');
+        document.getElementById('createInitiativeView').classList.add('hidden');
+        document.getElementById('detailView').classList.add('hidden');
+
+        // Update navigation - remove active class from all
+        document.getElementById('navDashboard').classList.remove('active');
+        document.getElementById('navLista').classList.remove('active');
+        document.getElementById('navCreateInitiative').classList.remove('active');
+
+        // Show selected view
+        switch(view) {
+            case 'dashboard':
+                console.log('  📊 Mostrando Dashboard');
+                document.getElementById('dashboardView').classList.remove('hidden');
+                document.getElementById('navDashboard').classList.add('active');
+                updateDashboard();
+                break;
+            case 'list':
+                console.log('  📋 Mostrando Lista');
+                document.getElementById('listView').classList.remove('hidden');
+                document.getElementById('navLista').classList.add('active');
+                updateList();
+                break;
+            case 'createInitiative':
+                console.log('  ➕ Mostrando Crear Iniciativa');
+                const createView = document.getElementById('createInitiativeView');
+                if (!createView) {
+                    console.error('❌ ERROR: No se encontró createInitiativeView');
+                    alert('Error: No se puede mostrar el formulario. Recargue la página.');
+                    return;
+                }
+                createView.classList.remove('hidden');
+                document.getElementById('navCreateInitiative').classList.add('active');
+                initSimpleForm();
+                console.log('  ✅ Formulario simple mostrado');
+                break;
+            case 'detail':
+                console.log('  📄 Mostrando Detalle');
+                document.getElementById('detailView').classList.remove('hidden');
+                break;
+        }
+
+        currentView = view === 'detail' ? currentView : view;
+        console.log(`✅ Vista cambiada exitosamente`);
+    }
+
+    function showLoading(show) {
+        const loadingState = document.getElementById('loadingState');
+        if (show) {
+            loadingState.classList.remove('hidden');
+        } else {
+            loadingState.classList.add('hidden');
+        }
+    }
+
+    // Sidebar Toggle Function
+    function toggleSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const mainContent = document.getElementById('mainContent');
+        const sidebarLogo = document.getElementById('sidebarLogo');
+        
+        const isCollapsed = sidebar.classList.toggle('collapsed');
+        mainContent.classList.toggle('expanded');
+        
+        // Cambiar logo según estado
+        if (isCollapsed) {
+            sidebarLogo.src = 'https://raw.githubusercontent.com/sb-talentohumano-ia/nexus-ai-logo/main/isologo.png';
+            sidebarLogo.classList.add('mx-auto');
+        } else {
+            sidebarLogo.src = 'https://github.com/sb-talentohumano-ia/nexus-ai-logo/blob/main/logo%20(2).png?raw=true';
+            sidebarLogo.classList.remove('mx-auto');
+        }
+    }
+
+    // Dashboard Tab Switching
+    function switchDashboardTab(tab) {
+        currentDashboardTab = tab;
+        
+        // Update tab buttons
+        document.getElementById('tabGeneral').classList.toggle('active', tab === 'general');
+        document.getElementById('tabClasificacion').classList.toggle('active', tab === 'clasificacion');
+        
+        // Show/hide dashboard sections
+        document.getElementById('generalDashboard').classList.toggle('hidden', tab !== 'general');
+        document.getElementById('clasificacionDashboard').classList.toggle('hidden', tab !== 'clasificacion');
+        
+        // Update content based on tab
+        if (tab === 'general') {
+            updateGeneralDashboard();
+        } else {
+            updateClasificacionDashboard();
+        }
+    }
+
+    // ============================================================================
+    // MULTI-PHASE WIZARD FUNCTIONS
+    // ============================================================================
+
+    let currentPhase = 1;
+    const totalPhases = 4;
+
+    function runCompleteDiagnostic() {
+        console.log('🔧 ==================== DIAGNÓSTICO COMPLETO ====================');
+        
+        // 1. Verificar elementos críticos del DOM
+        console.log('📋 1. Verificando elementos del DOM...');
+        const criticalElements = {
+            'multiPhaseForm': 'Formulario principal',
+            'phase1': 'Fase 1',
+            'phase2': 'Fase 2', 
+            'phase3': 'Fase 3',
+            'phase4': 'Fase 4',
+            'btnNextPhase': 'Botón Siguiente',
+            'btnPrevPhase': 'Botón Anterior',
+            'btnSubmitInitiative': 'Botón Guardar',
+            'p_nombre': 'Campo Nombre',
+            'p_vertical': 'Campo Vertical',
+            'p_id_proceso': 'Campo Proceso',
+            'p_fecha_pedido': 'Campo Fecha',
+            'f1_problema_dolor': 'Campo Problema',
+            'f2_responsable_nombre': 'Campo Responsable',
+            'f3_tipo_solucion': 'Campo Tipo Solución',
+            'f3_infraestructura': 'Campo Infraestructura',
+            'f4_e4_adopcion_pct': 'Campo Adopción'
+        };
+        
+        const missingElements = [];
+        for (const [id, description] of Object.entries(criticalElements)) {
+            const element = document.getElementById(id);
+            if (!element) {
+                missingElements.push(`${description} (${id})`);
+                console.error(`  ❌ Falta: ${description} (${id})`);
+            }
+        }
+        
+        if (missingElements.length > 0) {
+            console.error('❌ ELEMENTOS FALTANTES:', missingElements);
+            alert('ERROR CRÍTICO: Faltan elementos en la interfaz:\n\n' + missingElements.join('\n') + '\n\nPor favor recargue la página completamente (Ctrl+Shift+R)');
+            return false;
+        }
+        console.log('  ✅ Todos los elementos críticos presentes');
+        
+        // 2. Verificar que google.script.run existe
+        console.log('📋 2. Verificando conexión con Google Apps Script...');
+        if (typeof google === 'undefined' || !google.script || !google.script.run) {
+            console.error('  ❌ google.script.run no está disponible');
+            alert('ERROR: No se puede conectar con el backend de Google Apps Script.\n\nAsegúrese de estar ejecutando la aplicación desde Apps Script, no como archivo local.');
+            return false;
+        }
+        console.log('  ✅ Conexión con Google Apps Script disponible');
+        
+        // 3. Verificar variables globales
+        console.log('📋 3. Verificando variables globales...');
+        console.log('  - gerencias:', gerencias ? gerencias.length : 'undefined');
+        console.log('  - procesos:', procesos ? procesos.length : 'undefined');
+        console.log('  - isAdmin:', isAdmin);
+        console.log('  - currentPhase:', currentPhase);
+        console.log('  - totalPhases:', totalPhases);
+        
+        // 4. Verificar event listeners
+        console.log('📋 4. Verificando event listeners...');
+        const form = document.getElementById('multiPhaseForm');
+        if (form && form.onsubmit) {
+            console.log('  ✅ Event listener de submit está configurado');
+        } else {
+            console.warn('  ⚠️ Event listener de submit podría no estar configurado');
+        }
+        
+        console.log('🔧 ==================== FIN DIAGNÓSTICO ====================');
+        return true;
+    }
+
+    function initializeWizard() {
+        console.log('🎬 Inicializando wizard multi-fase...');
+        
+        // Ejecutar diagnóstico completo
+        if (!runCompleteDiagnostic()) {
+            return;
+        }
+        
+        // Reset al estado inicial
+        currentPhase = 1;
+        document.getElementById('multiPhaseForm').reset();
+        
+        // Mostrar solo Fase 1
+        showPhase(1);
+        
+        // Actualizar stepper
+        updateStepper();
+        
+        // Cargar catálogos en dropdowns
+        loadWizardCatalogs();
+        
+        // Configurar fecha por defecto
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('p_fecha_pedido').value = today;
+        
+        // Mostrar u ocultar campo gerencia según rol
+        if (isAdmin) {
+            document.getElementById('p_gerenciaContainer').classList.remove('hidden');
+            document.getElementById('p_id_gerencia').setAttribute('required', 'required');
+            console.log('👤 Usuario es administrador - mostrando selector de gerencia');
+        } else {
+            document.getElementById('p_gerenciaContainer').classList.add('hidden');
+            document.getElementById('p_id_gerencia').removeAttribute('required');
+            console.log('👤 Usuario regular - gerencia se asignará automáticamente');
+        }
+        
+        console.log('✅ Wizard inicializado correctamente');
+        
+        // Prueba de conectividad con backend (solo una vez)
+        testBackendConnection();
+    }
+    
+    function testBackendConnection() {
+        console.log('🔌 Probando conexión con backend...');
+        
+        // Probar funciones críticas
+        const functionsToTest = [
+            'getVerticalesForWeb',
+            'getTiposSolucionForWeb',
+            'getTiposInfraestructuraForWeb',
+            'createMultiPhaseInitiativeForWeb'
+        ];
+        
+        functionsToTest.forEach(funcName => {
+            if (typeof google !== 'undefined' && google.script && google.script.run && google.script.run[funcName]) {
+                console.log(`  ✅ Función ${funcName} está disponible`);
+            } else {
+                console.error(`  ❌ Función ${funcName} NO está disponible`);
+            }
+        });
+    }
+
+    async function loadWizardCatalogs() {
+        console.log('🔄 Cargando catálogos del wizard...');
+        
+        // Cargar verticales
+        try {
+            console.log('  📥 Solicitando verticales...');
+            const result = await new Promise((resolve, reject) => {
+                google.script.run
+                    .withSuccessHandler((result) => {
+                        const response = typeof result === 'string' ? JSON.parse(result) : result;
+                        resolve(response);
+                    })
+                    .withFailureHandler((error) => {
+                        console.error('❌ Error en getVerticalesForWeb:', error);
+                        reject(error);
+                    })
+                    .getVerticalesForWeb();
+            });
+            
+            if (result.success) {
+                const selectVertical = document.getElementById('p_vertical');
+                if (!selectVertical) {
+                    console.error('❌ No se encontró el elemento p_vertical');
+                    return;
+                }
+                selectVertical.innerHTML = '<option value="">Seleccione...</option>';
+                result.data.forEach(vertical => {
+                    const option = document.createElement('option');
+                    option.value = vertical;
+                    option.textContent = vertical;
+                    selectVertical.appendChild(option);
+                });
+                console.log(`  ✅ ${result.data.length} verticales cargadas`);
+            } else {
+                console.error('❌ Error al obtener verticales:', result.error);
+                showNotification('Error al cargar verticales', 'error');
+            }
+        } catch (error) {
+            console.error('❌ Error cargando verticales:', error);
+            showNotification('Error al cargar verticales: ' + error.message, 'error');
+        }
+
+        // Cargar gerencias (para admins)
+        if (isAdmin) {
+            const selectGerencia = document.getElementById('p_id_gerencia');
+            selectGerencia.innerHTML = '<option value="">Seleccione...</option>';
+            gerencias.forEach(g => {
+                const option = document.createElement('option');
+                option.value = g.id;
+                option.textContent = g.nombre;
+                selectGerencia.appendChild(option);
+            });
+        }
+
+        // Cargar procesos
+        const selectProceso = document.getElementById('p_id_proceso');
+        selectProceso.innerHTML = '<option value="">Seleccione...</option>';
+        procesos.forEach(p => {
+            const option = document.createElement('option');
+            option.value = p.id;
+            option.textContent = p.nombre;
+            selectProceso.appendChild(option);
+        });
+
+        // Cargar tipos de solución
+        try {
+            console.log('  📥 Solicitando tipos de solución...');
+            const result = await new Promise((resolve, reject) => {
+                google.script.run
+                    .withSuccessHandler((result) => {
+                        const response = typeof result === 'string' ? JSON.parse(result) : result;
+                        resolve(response);
+                    })
+                    .withFailureHandler((error) => {
+                        console.error('❌ Error en getTiposSolucionForWeb:', error);
+                        reject(error);
+                    })
+                    .getTiposSolucionForWeb();
+            });
+            
+            if (result.success) {
+                const selectTipoSolucion = document.getElementById('f3_tipo_solucion');
+                if (!selectTipoSolucion) {
+                    console.error('❌ No se encontró el elemento f3_tipo_solucion');
+                    return;
+                }
+                selectTipoSolucion.innerHTML = '<option value="">Seleccione...</option>';
+                result.data.forEach(tipo => {
+                    const option = document.createElement('option');
+                    option.value = tipo;
+                    option.textContent = tipo;
+                    selectTipoSolucion.appendChild(option);
+                });
+                console.log(`  ✅ ${result.data.length} tipos de solución cargados`);
+            } else {
+                console.error('❌ Error al obtener tipos de solución:', result.error);
+                showNotification('Error al cargar tipos de solución', 'error');
+            }
+        } catch (error) {
+            console.error('❌ Error cargando tipos de solución:', error);
+            showNotification('Error al cargar tipos de solución: ' + error.message, 'error');
+        }
+
+        // Cargar tipos de infraestructura
+        try {
+            console.log('  📥 Solicitando tipos de infraestructura...');
+            const result = await new Promise((resolve, reject) => {
+                google.script.run
+                    .withSuccessHandler((result) => {
+                        const response = typeof result === 'string' ? JSON.parse(result) : result;
+                        resolve(response);
+                    })
+                    .withFailureHandler((error) => {
+                        console.error('❌ Error en getTiposInfraestructuraForWeb:', error);
+                        reject(error);
+                    })
+                    .getTiposInfraestructuraForWeb();
+            });
+            
+            if (result.success) {
+                const selectInfra = document.getElementById('f3_infraestructura');
+                if (!selectInfra) {
+                    console.error('❌ No se encontró el elemento f3_infraestructura');
+                    return;
+                }
+                selectInfra.innerHTML = '<option value="">Seleccione...</option>';
+                result.data.forEach(tipo => {
+                    const option = document.createElement('option');
+                    option.value = tipo;
+                    option.textContent = tipo;
+                    selectInfra.appendChild(option);
+                });
+                console.log(`  ✅ ${result.data.length} tipos de infraestructura cargados`);
+            } else {
+                console.error('❌ Error al obtener tipos de infraestructura:', result.error);
+                showNotification('Error al cargar tipos de infraestructura', 'error');
+            }
+        } catch (error) {
+            console.error('❌ Error cargando tipos de infraestructura:', error);
+            showNotification('Error al cargar tipos de infraestructura: ' + error.message, 'error');
+        }
+        
+        console.log('✅ Catálogos del wizard cargados completamente');
+    }
+
+    function showPhase(phase) {
+        console.log(`📄 Mostrando fase ${phase} de ${totalPhases}`);
+        
+        // Ocultar todas las fases
+        for (let i = 1; i <= totalPhases; i++) {
+            const phaseEl = document.getElementById(`phase${i}`);
+            if (phaseEl) {
+                phaseEl.classList.add('hidden');
+            } else {
+                console.error(`❌ No se encontró phase${i}`);
+            }
+        }
+        
+        // Mostrar la fase actual
+        const currentPhaseEl = document.getElementById(`phase${phase}`);
+        if (!currentPhaseEl) {
+            console.error(`❌ No se encontró phase${phase}`);
+            return;
+        }
+        currentPhaseEl.classList.remove('hidden');
+        console.log(`  ✅ Fase ${phase} visible:`, !currentPhaseEl.classList.contains('hidden'));
+        
+        // Actualizar botones de navegación
+        const btnPrev = document.getElementById('btnPrevPhase');
+        const btnNext = document.getElementById('btnNextPhase');
+        const btnSubmit = document.getElementById('btnSubmitInitiative');
+        
+        if (!btnPrev || !btnNext || !btnSubmit) {
+            console.error('❌ No se encontraron los botones de navegación');
+            return;
+        }
+        
+        if (phase === 1) {
+            btnPrev.classList.add('hidden');
+        } else {
+            btnPrev.classList.remove('hidden');
+        }
+        
+        if (phase === totalPhases) {
+            btnNext.classList.add('hidden');
+            btnSubmit.classList.remove('hidden');
+            console.log('  📤 Mostrando botón Guardar (última fase)');
+        } else {
+            btnNext.classList.remove('hidden');
+            btnSubmit.classList.add('hidden');
+            console.log('  ▶️ Mostrando botón Siguiente');
+        }
+        
+        console.log(`✅ Fase ${phase} mostrada correctamente`);
+    }
+
+    function updateStepper() {
+        // Actualizar círculos del stepper
+        for (let i = 1; i <= totalPhases; i++) {
+            const circle = document.getElementById(`step${i}Circle`);
+            if (i < currentPhase) {
+                // Fase completada
+                circle.classList.remove('bg-brand-gray-medium', 'bg-brand-primary');
+                circle.classList.add('bg-brand-green-light');
+                circle.innerHTML = '✓';
+            } else if (i === currentPhase) {
+                // Fase actual
+                circle.classList.remove('bg-brand-gray-medium', 'bg-brand-green-light');
+                circle.classList.add('bg-brand-primary');
+                circle.textContent = i;
+            } else {
+                // Fase pendiente
+                circle.classList.remove('bg-brand-primary', 'bg-brand-green-light');
+                circle.classList.add('bg-brand-gray-medium');
+                circle.textContent = i;
+            }
+        }
+        
+        // Actualizar barra de progreso
+        const progress = (currentPhase / totalPhases) * 100;
+        document.getElementById('progressBar').style.width = `${progress}%`;
+    }
+
+    function handleNextPhase() {
+        console.log(`Avanzando de fase ${currentPhase} a ${currentPhase + 1}`);
+        
+        // Validar campos de la fase actual
+        if (!validateCurrentPhase()) {
+            showNotification('Por favor complete todos los campos requeridos de esta fase', 'error');
+            return;
+        }
+        
+        // Avanzar a la siguiente fase
+        if (currentPhase < totalPhases) {
+            currentPhase++;
+            showPhase(currentPhase);
+            updateStepper();
+            
+            // Scroll al top
+            document.getElementById('createInitiativeView').scrollIntoView({ behavior: 'smooth' });
+        }
+    }
+
+    function handlePrevPhase() {
+        console.log(`Retrocediendo de fase ${currentPhase} a ${currentPhase - 1}`);
+        
+        if (currentPhase > 1) {
+            currentPhase--;
+            showPhase(currentPhase);
+            updateStepper();
+            
+            // Scroll al top
+            document.getElementById('createInitiativeView').scrollIntoView({ behavior: 'smooth' });
+        }
+    }
+
+    function validateCurrentPhase() {
+        const form = document.getElementById('multiPhaseForm');
+        let isValid = true;
+        
+        // Obtener todos los campos requeridos de la fase actual
+        const currentPhaseDiv = document.getElementById(`phase${currentPhase}`);
+        const requiredFields = currentPhaseDiv.querySelectorAll('[required]');
+        
+        requiredFields.forEach(field => {
+            if (!field.value || field.value.trim() === '') {
+                isValid = false;
+                field.classList.add('border-red-500');
+            } else {
+                field.classList.remove('border-red-500');
+            }
+        });
+        
+        return isValid;
+    }
+
+    function updatePhase4Preview() {
+        // Obtener valores
+        const e1 = parseFloat(document.getElementById('f4_e1_ahorro_gastos').value) || 0;
+        const e2Horas = parseFloat(document.getElementById('f4_e2_horas_ahorradas').value) || 0;
+        const e2Costo = parseFloat(document.getElementById('f4_e2_costo_hora_rol').value) || 0;
+        const e3 = parseFloat(document.getElementById('f4_e3_costo_evitado').value) || 0;
+        const e4 = parseFloat(document.getElementById('f4_e4_adopcion_pct').value) || 0;
+        const capex = parseFloat(document.getElementById('f3_capex_cop').value) || 1;
+        
+        // Calcular beneficio bruto: E1 + (E2*12) + E3
+        const beneficioBruto = e1 + (e2Horas * e2Costo * 12) + e3;
+        
+        // Calcular beneficio ajustado: Beneficio Bruto * (E4/100)
+        const beneficioAjustado = beneficioBruto * (e4 / 100);
+        
+        // Calcular ROI: ((Beneficio Ajustado - CAPEX) / CAPEX) * 100
+        const roi = capex > 0 ? ((beneficioAjustado - capex) / capex) * 100 : 0;
+        
+        // Actualizar preview
+        document.getElementById('preview_beneficio_bruto').textContent = 
+            new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(beneficioBruto);
+        document.getElementById('preview_beneficio_ajustado').textContent = 
+            new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(beneficioAjustado);
+        document.getElementById('preview_roi').textContent = roi.toFixed(2) + '%';
+        
+        // Cambiar color del ROI según el valor
+        const roiElement = document.getElementById('preview_roi');
+        if (roi > 50) {
+            roiElement.className = 'text-2xl font-bold text-brand-green-light';
+        } else if (roi > 20) {
+            roiElement.className = 'text-2xl font-bold text-brand-yellow-gold';
+        } else {
+            roiElement.className = 'text-2xl font-bold text-brand-gray-dark';
+        }
+    }
+
+    async function handleMultiPhaseSubmit(e) {
+        e.preventDefault();
+        console.log('📝 Enviando formulario multi-fase...');
+        
+        // Validar todas las fases
+        console.log('🔍 Validando todas las fases...');
+        if (!validateAllPhases()) {
+            console.error('❌ Validación fallida');
+            showNotification('⚠️ Por favor complete todos los campos requeridos en todas las fases', 'error');
+            // Ir a la primera fase con error
+            for (let i = 1; i <= totalPhases; i++) {
+                const phaseDiv = document.getElementById(`phase${i}`);
+                const requiredFields = phaseDiv.querySelectorAll('[required]');
+                let hasError = false;
+                requiredFields.forEach(field => {
+                    if (!field.value || field.value.trim() === '') {
+                        hasError = true;
+                    }
+                });
+                if (hasError) {
+                    showPhase(i);
+                    currentPhase = i;
+                    updateStepper();
+                    break;
+                }
+            }
+            return;
+        }
+        console.log('✅ Validación exitosa');
+        
+        // Construir objeto con todos los datos
+        console.log('📦 Construyendo objeto de datos...');
+        
+        // Función helper para obtener valor de manera segura
+        const getValueSafe = (id, defaultValue = '') => {
+            const element = document.getElementById(id);
+            if (!element) {
+                console.warn(`  ⚠️ Elemento ${id} no encontrado`);
+                return defaultValue;
+            }
+            const value = element.value || defaultValue;
+            console.log(`  📝 ${id}: "${value}"`);
+            return value;
+        };
+        
+        const formData = {
+            // Datos básicos (Master)
+            nombre: getValueSafe('p_nombre'),
+            descripcion: getValueSafe('p_descripcion'),
+            vertical: getValueSafe('p_vertical'),
+            id_proceso: getValueSafe('p_id_proceso'),
+            fecha_pedido_iniciativa: getValueSafe('p_fecha_pedido'),
+            estado: 'sin iniciar',
+            observaciones: '',
+            
+            // Gerencia (admin selecciona, user se asigna automático en backend)
+            id_gerencia: isAdmin ? getValueSafe('p_id_gerencia') : undefined,
+            
+            // Fase 1
+            f1_problema_dolor: getValueSafe('f1_problema_dolor'),
+            f1_metrica_dolor: getValueSafe('f1_metrica_dolor', '0'),
+            f1_unidad_metrica: getValueSafe('f1_unidad_metrica'),
+            f1_proceso_solucion: getValueSafe('f1_proceso_solucion'),
+            f1_volumen_mensual: getValueSafe('f1_volumen_mensual', '0'),
+            f1_usuario_final: getValueSafe('f1_usuario_final'),
+            
+            // Fase 2
+            f2_responsable_nombre: getValueSafe('f2_responsable_nombre'),
+            f2_responsable_cargo: getValueSafe('f2_responsable_cargo'),
+            f2_po_nombre: getValueSafe('f2_po_nombre', ''),
+            f2_lider_tecnico_nombre: getValueSafe('f2_lider_tecnico_nombre', ''),
+            f2_areas_involucradas: getValueSafe('f2_areas_involucradas', ''),
+            
+            // Fase 3
+            f3_tipo_solucion: getValueSafe('f3_tipo_solucion'),
+            f3_infraestructura: getValueSafe('f3_infraestructura'),
+            f3_capex_cop: getValueSafe('f3_capex_cop', '0'),
+            f3_opex_anual_cop: getValueSafe('f3_opex_anual_cop', '0'),
+            f3_observacion_tec: getValueSafe('f3_observacion_tec', ''),
+            
+            // Fase 4
+            f4_e1_ahorro_gastos: getValueSafe('f4_e1_ahorro_gastos', '0'),
+            f4_e2_horas_ahorradas: getValueSafe('f4_e2_horas_ahorradas', '0'),
+            f4_e2_costo_hora_rol: getValueSafe('f4_e2_costo_hora_rol', '0'),
+            f4_e3_costo_evitado: getValueSafe('f4_e3_costo_evitado', '0'),
+            f4_e4_adopcion_pct: getValueSafe('f4_e4_adopcion_pct', '100')
+        };
+        
+        console.log('📋 Datos a enviar:', formData);
+        console.log('📊 Total de campos:', Object.keys(formData).length);
+        
+        try {
+            // Mostrar loading
+            console.log('⏳ Mostrando indicador de carga...');
+            const btnSubmit = document.getElementById('btnSubmitInitiative');
+            const originalText = btnSubmit.innerHTML;
+            btnSubmit.disabled = true;
+            btnSubmit.innerHTML = '<div class="flex items-center"><div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div> Guardando...</div>';
+            
+            // Llamar al backend
+            console.log('🌐 Llamando a createMultiPhaseInitiativeForWeb...');
+            const result = await new Promise((resolve, reject) => {
+                google.script.run
+                    .withSuccessHandler((result) => {
+                        console.log('📥 Respuesta recibida del backend');
+                        const response = typeof result === 'string' ? JSON.parse(result) : result;
+                        console.log('📦 Respuesta parseada:', response);
+                        resolve(response);
+                    })
+                    .withFailureHandler((error) => {
+                        console.error('❌ Error en createMultiPhaseInitiativeForWeb:', error);
+                        console.error('❌ Tipo de error:', typeof error);
+                        console.error('❌ Detalles del error:', JSON.stringify(error, null, 2));
+                        reject(error);
+                    })
+                    .createMultiPhaseInitiativeForWeb(formData);
+            });
+            
+            console.log('🔍 Analizando resultado...');
+            if (result.success) {
+                console.log('✅ Iniciativa creada exitosamente');
+                showNotification(`✅ Iniciativa creada exitosamente: ${result.data.nombre}`, 'success');
+                console.log('📊 Datos de iniciativa creada:', result.data);
+                
+                // Recargar iniciativas
+                console.log('🔄 Recargando lista de iniciativas...');
+                await loadInitiatives();
+                
+                // Volver al dashboard
+                console.log('🏠 Volviendo al dashboard...');
+                showView('dashboard');
+            } else {
+                console.error('❌ Error reportado por el backend:', result.error);
+                if (result.validationErrors) {
+                    console.error('❌ Errores de validación:', result.validationErrors);
+                }
+                const errorMsg = result.error || 'Error desconocido al crear iniciativa';
+                throw new Error(errorMsg + (result.validationErrors ? '\n' + result.validationErrors.join('\n') : ''));
+            }
+            
+        } catch (error) {
+            console.error('❌ Error crítico creando iniciativa:', error);
+            console.error('❌ Stack trace:', error.stack);
+            
+            let errorMessage = 'Error al crear iniciativa: ' + error.message;
+            
+            // Si el error tiene información adicional, mostrarla
+            if (error.toString().includes('Script error')) {
+                errorMessage += '\n\n⚠️ Posible problema de conexión o permisos. Verifique su conexión y recargue la página.';
+            }
+            
+            showNotification(errorMessage, 'error');
+            
+            // Restaurar botón
+            const btnSubmit = document.getElementById('btnSubmitInitiative');
+            btnSubmit.disabled = false;
+            btnSubmit.innerHTML = '💾 Guardar Iniciativa';
+        }
+    }
+
+    function validateAllPhases() {
+        console.log('🔍 Iniciando validación de todas las fases...');
+        
+        // Validar todas las fases secuencialmente
+        for (let i = 1; i <= totalPhases; i++) {
+            const phaseDiv = document.getElementById(`phase${i}`);
+            if (!phaseDiv) {
+                console.error(`❌ No se encontró la fase ${i}`);
+                continue;
+            }
+            
+            const requiredFields = phaseDiv.querySelectorAll('[required]');
+            console.log(`  📝 Fase ${i}: ${requiredFields.length} campos requeridos`);
+            
+            let isValid = true;
+            const missingFields = [];
+            
+            requiredFields.forEach(field => {
+                if (!field.value || field.value.trim() === '') {
+                    isValid = false;
+                    missingFields.push(field.name || field.id);
+                    field.classList.add('border-red-500');
+                } else {
+                    field.classList.remove('border-red-500');
+                }
+            });
+            
+            if (!isValid) {
+                console.error(`  ❌ Fase ${i} tiene campos faltantes:`, missingFields);
+                console.error(`  📍 Navegando a fase ${i} para que el usuario complete los campos`);
+                // Ir a la fase con errores
+                currentPhase = i;
+                showPhase(i);
+                updateStepper();
+                return false;
+            } else {
+                console.log(`  ✅ Fase ${i} validada correctamente`);
+            }
+        }
+        
+        console.log('✅ Todas las fases validadas correctamente');
+        return true;
+    }
+
+    // ==================================================================
+    // FORMULARIO SIMPLE - CREAR INICIATIVA
+    // ==================================================================
+    
+    function initSimpleForm() {
+        console.log('📝 Inicializando formulario simple...');
+        
+        const form = document.getElementById('simpleInitiativeForm');
+        if (!form) {
+            console.error('❌ No se encontró simpleInitiativeForm');
+            return;
+        }
+        
+        // Limpiar formulario
+        form.reset();
+        
+        // Fecha por defecto
+        const today = new Date().toISOString().split('T')[0];
+        const fechaInput = document.getElementById('fecha_pedido_iniciativa');
+        if (fechaInput) fechaInput.value = today;
+        
+        // Mostrar/ocultar gerencia según rol
+        const gerenciaContainer = document.getElementById('gerenciaContainer');
+        const gerenciaSelect = document.getElementById('id_gerencia');
+        
+        if (isAdmin) {
+            if (gerenciaContainer) gerenciaContainer.classList.remove('hidden');
+            if (gerenciaSelect) gerenciaSelect.required = true;
+        } else {
+            if (gerenciaContainer) gerenciaContainer.classList.add('hidden');
+            if (gerenciaSelect) gerenciaSelect.required = false;
+        }
+        
+        // Cargar catálogos
+        loadSimpleCatalogs();
+        
+        console.log('✅ Formulario simple inicializado');
+    }
+    
+    async function loadSimpleCatalogs() {
+        console.log('🔄 Cargando catálogos...');
+        
+        try {
+            // Cargar Verticales
+            google.script.run
+                .withSuccessHandler((result) => {
+                    const response = typeof result === 'string' ? JSON.parse(result) : result;
+                    if (response.success) {
+                        const select = document.getElementById('vertical');
+                        if (select) {
+                            select.innerHTML = '<option value="">Seleccione...</option>';
+                            response.data.forEach(v => {
+                                const option = document.createElement('option');
+                                option.value = v;
+                                option.textContent = v;
+                                select.appendChild(option);
+                            });
+                            console.log(`✅ ${response.data.length} verticales cargadas`);
+                        }
+                    }
+                })
+                .withFailureHandler((error) => {
+                    console.error('❌ Error cargando verticales:', error);
+                })
+                .getVerticalesForWeb();
+            
+            // Cargar Gerencias (si es admin)
+            if (isAdmin && gerencias) {
+                const select = document.getElementById('id_gerencia');
+                if (select) {
+                    select.innerHTML = '<option value="">Seleccione...</option>';
+                    gerencias.forEach(g => {
+                        const option = document.createElement('option');
+                        option.value = g.id;
+                        option.textContent = g.nombre;
+                        select.appendChild(option);
+                    });
+                    console.log(`✅ ${gerencias.length} gerencias cargadas`);
+                }
+            }
+            
+            // Cargar Procesos
+            if (procesos) {
+                const select = document.getElementById('id_proceso');
+                if (select) {
+                    select.innerHTML = '<option value="">Seleccione...</option>';
+                    procesos.forEach(p => {
+                        const option = document.createElement('option');
+                        option.value = p.id;
+                        option.textContent = p.nombre;
+                        select.appendChild(option);
+                    });
+                    console.log(`✅ ${procesos.length} procesos cargados`);
+                }
+            }
+            
+            // Cargar Tipos de Solución
+            google.script.run
+                .withSuccessHandler((result) => {
+                    const response = typeof result === 'string' ? JSON.parse(result) : result;
+                    if (response.success) {
+                        const select = document.getElementById('f3_tipo_solucion');
+                        if (select) {
+                            select.innerHTML = '<option value="">Seleccione...</option>';
+                            response.data.forEach(t => {
+                                const option = document.createElement('option');
+                                option.value = t;
+                                option.textContent = t;
+                                select.appendChild(option);
+                            });
+                            console.log(`✅ ${response.data.length} tipos de solución cargados`);
+                        }
+                    }
+                })
+                .withFailureHandler((error) => {
+                    console.error('❌ Error cargando tipos de solución:', error);
+                })
+                .getTiposSolucionForWeb();
+            
+            // Cargar Tipos de Infraestructura
+            google.script.run
+                .withSuccessHandler((result) => {
+                    const response = typeof result === 'string' ? JSON.parse(result) : result;
+                    if (response.success) {
+                        const select = document.getElementById('f3_infraestructura');
+                        if (select) {
+                            select.innerHTML = '<option value="">Seleccione...</option>';
+                            response.data.forEach(t => {
+                                const option = document.createElement('option');
+                                option.value = t;
+                                option.textContent = t;
+                                select.appendChild(option);
+                            });
+                            console.log(`✅ ${response.data.length} tipos de infraestructura cargados`);
+                        }
+                    }
+                })
+                .withFailureHandler((error) => {
+                    console.error('❌ Error cargando tipos de infraestructura:', error);
+                })
+                .getTiposInfraestructuraForWeb();
+            
+        } catch (error) {
+            console.error('❌ Error en loadSimpleCatalogs:', error);
+        }
+    }
+    
+    async function handleSimpleFormSubmit(e) {
+        e.preventDefault();
+        console.log('📤 Enviando formulario simple...');
+        
+        // Construir datos
+        const formData = {
+            nombre: document.getElementById('nombre').value,
+            descripcion: document.getElementById('descripcion').value,
+            vertical: document.getElementById('vertical').value,
+            id_proceso: document.getElementById('id_proceso').value,
+            fecha_pedido_iniciativa: document.getElementById('fecha_pedido_iniciativa').value,
+            estado: 'sin iniciar',
+            observaciones: '',
+            id_gerencia: isAdmin ? document.getElementById('id_gerencia').value : undefined,
+            
+            f1_problema_dolor: document.getElementById('f1_problema_dolor').value,
+            f1_metrica_dolor: document.getElementById('f1_metrica_dolor').value || '0',
+            f1_unidad_metrica: document.getElementById('f1_unidad_metrica').value,
+            f1_proceso_solucion: document.getElementById('f1_proceso_solucion').value,
+            f1_volumen_mensual: document.getElementById('f1_volumen_mensual').value || '0',
+            f1_usuario_final: document.getElementById('f1_usuario_final').value,
+            
+            f2_responsable_nombre: document.getElementById('f2_responsable_nombre').value,
+            f2_responsable_cargo: document.getElementById('f2_responsable_cargo').value,
+            f2_po_nombre: document.getElementById('f2_po_nombre').value || '',
+            f2_lider_tecnico_nombre: document.getElementById('f2_lider_tecnico_nombre').value || '',
+            f2_areas_involucradas: document.getElementById('f2_areas_involucradas').value || '',
+            
+            f3_tipo_solucion: document.getElementById('f3_tipo_solucion').value,
+            f3_infraestructura: document.getElementById('f3_infraestructura').value,
+            f3_capex_cop: document.getElementById('f3_capex_cop').value || '0',
+            f3_opex_anual_cop: document.getElementById('f3_opex_anual_cop').value || '0',
+            f3_observacion_tec: document.getElementById('f3_observacion_tec').value || '',
+            
+            f4_e1_ahorro_gastos: document.getElementById('f4_e1_ahorro_gastos').value || '0',
+            f4_e2_horas_ahorradas: document.getElementById('f4_e2_horas_ahorradas').value || '0',
+            f4_e2_costo_hora_rol: document.getElementById('f4_e2_costo_hora_rol').value || '0',
+            f4_e3_costo_evitado: document.getElementById('f4_e3_costo_evitado').value || '0',
+            f4_e4_adopcion_pct: document.getElementById('f4_e4_adopcion_pct').value || '100'
+        };
+        
+        console.log('📦 Datos:', formData);
+        
+        // Deshabilitar botón
+        const btnGuardar = document.getElementById('btnGuardar');
+        btnGuardar.disabled = true;
+        btnGuardar.textContent = '⏳ Guardando...';
+        
+        // Llamar al backend
+        google.script.run
+            .withSuccessHandler((result) => {
+                const response = typeof result === 'string' ? JSON.parse(result) : result;
+                console.log('📥 Respuesta:', response);
+                
+                if (response.success) {
+                    showNotification('✅ Iniciativa creada exitosamente', 'success');
+                    loadInitiatives();
+                    showView('dashboard');
+                } else {
+                    showNotification('❌ Error: ' + response.error, 'error');
+                    btnGuardar.disabled = false;
+                    btnGuardar.textContent = '💾 Guardar Iniciativa';
+                }
+            })
+            .withFailureHandler((error) => {
+                console.error('❌ Error:', error);
+                showNotification('❌ Error al crear iniciativa: ' + error.message, 'error');
+                btnGuardar.disabled = false;
+                btnGuardar.textContent = '💾 Guardar Iniciativa';
+            })
+            .createMultiPhaseInitiativeForWeb(formData);
+    }
+    
+    // ==================================================================
+    // Dashboard Functions
+    // ==================================================================
+    
+    function updateDashboard() {
+        if (currentDashboardTab === 'general') {
+            updateGeneralDashboard();
+        } else {
+            updateClasificacionDashboard();
+        }
+    }
+
+    function updateGeneralDashboard() {
+        applyFilters();
+        updateGeneralMetrics();
+        updateGeneralCharts();
+        updateRecentInitiativesTable();
+    }
+
+    function updateClasificacionDashboard() {
+        updateStatsCards();
+        updatePriorityMatrix();
+        updateRecentInitiatives();
+    }
+
+    // General Dashboard Functions
+    function setupDashboardFilters() {
+        // Populate filter dropdowns
+        populateFilterGerencias();
+        populateFilterProcesos();
+        populateFilterResponsables();
+        
+        // Setup multiselect interactions
+        setupFilterMultiSelect();
+
+        // Clear filters button
+        document.getElementById('clearFilters').addEventListener('click', () => {
+            currentFilters = { gerencias: [], procesos: [], responsables: [] };
+            renderFilterGerenciaTags();
+            renderFilterProcesoTags();
+            renderFilterResponsableTags();
+            populateFilterGerencias();
+            populateFilterProcesos();
+            populateFilterResponsables();
+            updateGeneralDashboard();
+        });
+    }
+
+    function setupFilterMultiSelect() {
+        // Gerencia filter selector
+        const filterGerenciaSelector = document.getElementById('filterGerenciaSelector');
+        const filterGerenciaDropdown = document.getElementById('filterGerenciaDropdown');
+        const filterGerenciaSearch = document.getElementById('filterGerenciaSearch');
+
+        filterGerenciaSelector.addEventListener('click', (e) => {
+            e.stopPropagation();
+            filterGerenciaDropdown.classList.toggle('hidden');
+            document.getElementById('filterProcesoDropdown').classList.add('hidden');
+            document.getElementById('filterResponsableDropdown').classList.add('hidden');
+        });
+
+        filterGerenciaSearch.addEventListener('click', (e) => e.stopPropagation());
+        filterGerenciaSearch.addEventListener('input', (e) => filterFilterGerencias(e.target.value));
+
+        // Proceso filter selector
+        const filterProcesoSelector = document.getElementById('filterProcesoSelector');
+        const filterProcesoDropdown = document.getElementById('filterProcesoDropdown');
+        const filterProcesoSearch = document.getElementById('filterProcesoSearch');
+
+        filterProcesoSelector.addEventListener('click', (e) => {
+            e.stopPropagation();
+            filterProcesoDropdown.classList.toggle('hidden');
+            document.getElementById('filterGerenciaDropdown').classList.add('hidden');
+            document.getElementById('filterResponsableDropdown').classList.add('hidden');
+        });
+
+        filterProcesoSearch.addEventListener('click', (e) => e.stopPropagation());
+        filterProcesoSearch.addEventListener('input', (e) => filterFilterProcesos(e.target.value));
+
+        // Responsable filter selector
+        const filterResponsableSelector = document.getElementById('filterResponsableSelector');
+        const filterResponsableDropdown = document.getElementById('filterResponsableDropdown');
+        const filterResponsableSearch = document.getElementById('filterResponsableSearch');
+
+        filterResponsableSelector.addEventListener('click', (e) => {
+            e.stopPropagation();
+            filterResponsableDropdown.classList.toggle('hidden');
+            document.getElementById('filterGerenciaDropdown').classList.add('hidden');
+            document.getElementById('filterProcesoDropdown').classList.add('hidden');
+        });
+
+        filterResponsableSearch.addEventListener('click', (e) => e.stopPropagation());
+        filterResponsableSearch.addEventListener('input', (e) => filterFilterResponsables(e.target.value));
+
+        // Close dropdowns on outside click
+        document.addEventListener('click', () => {
+            document.getElementById('filterGerenciaDropdown').classList.add('hidden');
+            document.getElementById('filterProcesoDropdown').classList.add('hidden');
+            document.getElementById('filterResponsableDropdown').classList.add('hidden');
+        });
+    }
+
+    function populateFilterGerencias() {
+        const optionsContainer = document.getElementById('filterGerenciaOptions');
+        if (!optionsContainer) return;
+
+        const sortedGerencias = [...gerencias].sort((a, b) => 
+            a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' })
+        );
+        
+        optionsContainer.innerHTML = sortedGerencias.map(gerencia => `
+            <label class="flex items-center p-2 hover:bg-brand-gray-light rounded-lg cursor-pointer transition-colors">
+                <input type="checkbox" 
+                       value="${gerencia.id}" 
+                       data-name="${gerencia.nombre}"
+                       class="filter-gerencia-checkbox w-4 h-4 text-brand-primary border-brand-gray-medium rounded focus:ring-brand-primary focus:ring-2"
+                       ${currentFilters.gerencias.includes(gerencia.id) ? 'checked' : ''}>
+                <span class="ml-3 text-sm text-brand-black">${gerencia.nombre}</span>
+            </label>
+        `).join('');
+
+        optionsContainer.querySelectorAll('.filter-gerencia-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                updateFilterGerenciaSelection(e.target.value, e.target.dataset.name, e.target.checked);
+            });
+        });
+    }
+
+    function populateFilterProcesos() {
+        const optionsContainer = document.getElementById('filterProcesoOptions');
+        if (!optionsContainer) return;
+        
+        const sortedProcesos = [...procesos].sort((a, b) => 
+            a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' })
+        );
+        
+        optionsContainer.innerHTML = sortedProcesos.map(proceso => `
+            <label class="flex items-center p-2 hover:bg-brand-gray-light rounded-lg cursor-pointer transition-colors">
+                <input type="checkbox" 
+                       value="${proceso.id}" 
+                       data-name="${proceso.nombre}"
+                       class="filter-proceso-checkbox w-4 h-4 text-brand-primary border-brand-gray-medium rounded focus:ring-brand-primary focus:ring-2"
+                       ${currentFilters.procesos.includes(proceso.id) ? 'checked' : ''}>
+                <span class="ml-3 text-sm text-brand-black">${proceso.nombre}</span>
+            </label>
+        `).join('');
+
+        optionsContainer.querySelectorAll('.filter-proceso-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                updateFilterProcesoSelection(e.target.value, e.target.dataset.name, e.target.checked);
+            });
+        });
+    }
+
+    function populateFilterResponsables() {
+        const optionsContainer = document.getElementById('filterResponsableOptions');
+        if (!optionsContainer) return;
+        
+        const responsables = [...new Set(initiatives.map(i => i.doer))].sort();
+        
+        optionsContainer.innerHTML = responsables.map(responsable => `
+            <label class="flex items-center p-2 hover:bg-brand-gray-light rounded-lg cursor-pointer transition-colors">
+                <input type="checkbox" 
+                       value="${responsable}" 
+                       data-name="${responsable}"
+                       class="filter-responsable-checkbox w-4 h-4 text-brand-primary border-brand-gray-medium rounded focus:ring-brand-primary focus:ring-2"
+                       ${currentFilters.responsables.includes(responsable) ? 'checked' : ''}>
+                <span class="ml-3 text-sm text-brand-black">${responsable}</span>
+            </label>
+        `).join('');
+
+        optionsContainer.querySelectorAll('.filter-responsable-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                updateFilterResponsableSelection(e.target.value, e.target.dataset.name, e.target.checked);
+            });
+        });
+    }
+
+    function updateFilterGerenciaSelection(id, name, isChecked) {
+        if (isChecked) {
+            if (!currentFilters.gerencias.includes(id)) {
+                currentFilters.gerencias.push(id);
+            }
+        } else {
+            currentFilters.gerencias = currentFilters.gerencias.filter(g => g !== id);
+        }
+        renderFilterGerenciaTags();
+        updateGeneralDashboard();
+    }
+
+    function updateFilterProcesoSelection(id, name, isChecked) {
+        if (isChecked) {
+            if (!currentFilters.procesos.includes(id)) {
+                currentFilters.procesos.push(id);
+            }
+        } else {
+            currentFilters.procesos = currentFilters.procesos.filter(p => p !== id);
+        }
+        renderFilterProcesoTags();
+        updateGeneralDashboard();
+    }
+
+    function updateFilterResponsableSelection(value, name, isChecked) {
+        if (isChecked) {
+            if (!currentFilters.responsables.includes(value)) {
+                currentFilters.responsables.push(value);
+            }
+        } else {
+            currentFilters.responsables = currentFilters.responsables.filter(r => r !== value);
+        }
+        renderFilterResponsableTags();
+        updateGeneralDashboard();
+    }
+
+    function renderFilterGerenciaTags() {
+        const tagsContainer = document.getElementById('filterGerenciaSelectedTags');
+        const placeholder = document.getElementById('filterGerenciaPlaceholder');
+        
+        if (currentFilters.gerencias.length === 0) {
+            tagsContainer.innerHTML = '';
+            placeholder.classList.remove('hidden');
+            return;
+        }
+        
+        placeholder.classList.add('hidden');
+        tagsContainer.innerHTML = currentFilters.gerencias.map(id => {
+            const gerencia = gerencias.find(g => g.id === id);
+            return gerencia ? `
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-primary text-white">
+                    ${gerencia.nombre.substring(0, 15)}${gerencia.nombre.length > 15 ? '...' : ''}
+                    <button type="button" onclick="removeFilterGerencia('${id}')" class="ml-1 hover:text-brand-secondary">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </span>
+            ` : '';
+        }).join('');
+    }
+
+    function renderFilterProcesoTags() {
+        const tagsContainer = document.getElementById('filterProcesoSelectedTags');
+        const placeholder = document.getElementById('filterProcesoPlaceholder');
+        
+        if (currentFilters.procesos.length === 0) {
+            tagsContainer.innerHTML = '';
+            placeholder.classList.remove('hidden');
+            return;
+        }
+        
+        placeholder.classList.add('hidden');
+        tagsContainer.innerHTML = currentFilters.procesos.map(id => {
+            const proceso = procesos.find(p => p.id === id);
+            return proceso ? `
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-primary text-white">
+                    ${proceso.nombre.substring(0, 15)}${proceso.nombre.length > 15 ? '...' : ''}
+                    <button type="button" onclick="removeFilterProceso('${id}')" class="ml-1 hover:text-brand-secondary">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </span>
+            ` : '';
+        }).join('');
+    }
+
+    function renderFilterResponsableTags() {
+        const tagsContainer = document.getElementById('filterResponsableSelectedTags');
+        const placeholder = document.getElementById('filterResponsablePlaceholder');
+        
+        if (currentFilters.responsables.length === 0) {
+            tagsContainer.innerHTML = '';
+            placeholder.classList.remove('hidden');
+            return;
+        }
+        
+        placeholder.classList.add('hidden');
+        tagsContainer.innerHTML = currentFilters.responsables.map(responsable => `
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-brand-primary text-white">
+                ${responsable.substring(0, 15)}${responsable.length > 15 ? '...' : ''}
+                <button type="button" onclick="removeFilterResponsable('${responsable}')" class="ml-1 hover:text-brand-secondary">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </span>
+        `).join('');
+    }
+
+    function removeFilterGerencia(id) {
+        currentFilters.gerencias = currentFilters.gerencias.filter(g => g !== id);
+        renderFilterGerenciaTags();
+        const checkbox = document.querySelector(`.filter-gerencia-checkbox[value="${id}"]`);
+        if (checkbox) checkbox.checked = false;
+        updateGeneralDashboard();
+    }
+
+    function removeFilterProceso(id) {
+        currentFilters.procesos = currentFilters.procesos.filter(p => p !== id);
+        renderFilterProcesoTags();
+        const checkbox = document.querySelector(`.filter-proceso-checkbox[value="${id}"]`);
+        if (checkbox) checkbox.checked = false;
+        updateGeneralDashboard();
+    }
+
+    function removeFilterResponsable(value) {
+        currentFilters.responsables = currentFilters.responsables.filter(r => r !== value);
+        renderFilterResponsableTags();
+        const checkbox = document.querySelector(`.filter-responsable-checkbox[value="${value}"]`);
+        if (checkbox) checkbox.checked = false;
+        updateGeneralDashboard();
+    }
+
+    function filterFilterGerencias(searchTerm) {
+        const optionsContainer = document.getElementById('filterGerenciaOptions');
+        const labels = optionsContainer.querySelectorAll('label');
+        
+        labels.forEach(label => {
+            const text = label.textContent.toLowerCase();
+            if (text.includes(searchTerm.toLowerCase())) {
+                label.style.display = 'flex';
+            } else {
+                label.style.display = 'none';
+            }
+        });
+    }
+
+    function filterFilterProcesos(searchTerm) {
+        const optionsContainer = document.getElementById('filterProcesoOptions');
+        const labels = optionsContainer.querySelectorAll('label');
+        
+        labels.forEach(label => {
+            const text = label.textContent.toLowerCase();
+            if (text.includes(searchTerm.toLowerCase())) {
+                label.style.display = 'flex';
+            } else {
+                label.style.display = 'none';
+            }
+        });
+    }
+
+    function filterFilterResponsables(searchTerm) {
+        const optionsContainer = document.getElementById('filterResponsableOptions');
+        const labels = optionsContainer.querySelectorAll('label');
+        
+        labels.forEach(label => {
+            const text = label.textContent.toLowerCase();
+            if (text.includes(searchTerm.toLowerCase())) {
+                label.style.display = 'flex';
+            } else {
+                label.style.display = 'none';
+            }
+        });
+    }
+
+    function applyFilters() {
+        filteredInitiatives = initiatives.filter(initiative => {
+            let matches = true;
+            
+            // Filtrar por gerencias (si hay filtros aplicados)
+            if (currentFilters.gerencias.length > 0) {
+                const initGerencias = initiative.idGerencia.split(',').map(g => g.trim());
+                // La iniciativa debe tener al menos una de las gerencias filtradas
+                matches = matches && currentFilters.gerencias.some(filterId => initGerencias.includes(filterId));
+            }
+            
+            // Filtrar por procesos (si hay filtros aplicados)
+            if (currentFilters.procesos.length > 0) {
+                const initProcesos = initiative.proceso.split(',').map(p => p.trim());
+                // La iniciativa debe tener al menos uno de los procesos filtrados
+                matches = matches && currentFilters.procesos.some(filterId => initProcesos.includes(filterId));
+            }
+            
+            // Filtrar por responsables (si hay filtros aplicados)
+            if (currentFilters.responsables.length > 0) {
+                matches = matches && currentFilters.responsables.includes(initiative.doer);
+            }
+            
+            return matches;
+        });
+    }
+
+    function updateGeneralMetrics() {
+        const total = filteredInitiatives.length;
+        const productive = filteredInitiatives.filter(i => i.estado === 'productivo');
+        const inDevelopment = filteredInitiatives.filter(i => i.estado === 'en desarrollo').length;
+        const pending = filteredInitiatives.filter(i => i.estado === 'sin iniciar').length;
+        
+        // Ahorro total esperado (todas las iniciativas)
+        const expectedSavings = filteredInitiatives.reduce((sum, i) => sum + (parseFloat(i.costSavingAmount) || 0), 0);
+        const expectedHours = filteredInitiatives.reduce((sum, i) => {
+            const hours = parseFloat(i.manualHoursSaved) || 0;
+            return sum + hours;
+        }, 0);
+        
+        // Ahorro real (solo productivas)
+        const realSavings = productive.reduce((sum, i) => sum + (parseFloat(i.costSavingAmount) || 0), 0);
+        const realHours = productive.reduce((sum, i) => {
+            const hours = parseFloat(i.manualHoursSaved) || 0;
+            return sum + hours;
+        }, 0);
+        
+        // Actualizar tarjetas
+        document.getElementById('totalInitiatives').textContent = total;
+        document.getElementById('productiveCount').textContent = productive.length;
+        
+        document.getElementById('realSavings').textContent = `$${realSavings.toFixed(1)}`;
+        document.getElementById('expectedSavings').textContent = `/ $${expectedSavings.toFixed(1)}`;
+        
+        document.getElementById('realHours').textContent = realHours.toFixed(0);
+        document.getElementById('expectedHours').textContent = `/ ${expectedHours.toFixed(0)}`;
+        
+        document.getElementById('statusProductive').textContent = productive.length;
+        document.getElementById('statusDevelopment').textContent = inDevelopment;
+        document.getElementById('statusPending').textContent = pending;
+    }
+
+    function updateGeneralCharts() {
+        updateGerenciaDonutChart();
+        updateProcesoDonutChart();
+        updateHoursChart();
+        updateSavingsChart();
+        updateHoursProcesoChart();
+        updateSavingsProcesoChart();
+    }
+
+    // Paleta de colores vibrantes para gráficos
+    const chartColors = [
+        '#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444',
+        '#06b6d4', '#ec4899', '#14b8a6', '#f97316', '#6366f1'
+    ];
+
+    function updateGerenciaDonutChart() {
+        const ctx = document.getElementById('gerenciaDonutChart').getContext('2d');
+        
+        if (gerenciaDonutChart) {
+            gerenciaDonutChart.destroy();
+        }
+        
+        // Count initiatives by gerencia
+        const gerenciaCounts = {};
+        filteredInitiatives.forEach(i => {
+            const gerenciaIds = i.idGerencia.split(',').map(g => g.trim());
+            gerenciaIds.forEach(gId => {
+                const gerencia = gerencias.find(g => g.id === gId);
+                if (gerencia) {
+                    gerenciaCounts[gerencia.nombre] = (gerenciaCounts[gerencia.nombre] || 0) + 1;
+                }
+            });
+        });
+        
+        const sortedGerencias = Object.entries(gerenciaCounts)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5);
+        
+        gerenciaDonutChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: sortedGerencias.map(g => g[0]),
+                datasets: [{
+                    data: sortedGerencias.map(g => g[1]),
+                    backgroundColor: chartColors.slice(0, sortedGerencias.length),
+                    borderWidth: 3,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                aspectRatio: 1,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.label}: ${context.parsed} iniciativas`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function updateProcesoDonutChart() {
+        const ctx = document.getElementById('procesoDonutChart').getContext('2d');
+        
+        if (procesoDonutChart) {
+            procesoDonutChart.destroy();
+        }
+        
+        // Count initiatives by proceso
+        const procesoCounts = {};
+        filteredInitiatives.forEach(i => {
+            const procesoIds = i.proceso.split(',').map(p => p.trim());
+            procesoIds.forEach(pId => {
+                const proceso = procesos.find(p => p.id === pId);
+                if (proceso) {
+                    procesoCounts[proceso.nombre] = (procesoCounts[proceso.nombre] || 0) + 1;
+                }
+            });
+        });
+        
+        const sortedProcesos = Object.entries(procesoCounts)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5);
+        
+        procesoDonutChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: sortedProcesos.map(p => p[0]),
+                datasets: [{
+                    data: sortedProcesos.map(p => p[1]),
+                    backgroundColor: chartColors.slice(0, sortedProcesos.length),
+                    borderWidth: 3,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                aspectRatio: 1,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.label}: ${context.parsed} iniciativas`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function updateHoursChart() {
+        const ctx = document.getElementById('hoursChart').getContext('2d');
+        
+        if (hoursChart) {
+            hoursChart.destroy();
+        }
+        
+        // Calcular horas por gerencia
+        const gerenciaHours = {};
+        filteredInitiatives.forEach(i => {
+            const gerenciaIds = i.idGerencia.split(',').map(g => g.trim());
+            const hours = parseFloat(i.manualHoursSaved) || 0;
+            gerenciaIds.forEach(gId => {
+                const gerencia = gerencias.find(g => g.id === gId);
+                if (gerencia) {
+                    gerenciaHours[gerencia.nombre] = (gerenciaHours[gerencia.nombre] || 0) + hours;
+                }
+            });
+        });
+        
+        // Get top 5
+        const sortedGerencias = Object.entries(gerenciaHours)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .reverse(); // Reverse para que el mayor esté arriba
+        
+        hoursChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: sortedGerencias.map(g => ''), // Sin labels
+                datasets: [{
+                    label: 'Horas/mes',
+                    data: sortedGerencias.map(g => g[1]),
+                    backgroundColor: 'rgba(147, 51, 234, 0.8)',
+                    borderRadius: 6,
+                    barThickness: 30,
+                    gerenciaNames: sortedGerencias.map(g => g[0]) // Guardamos los nombres para el tooltip
+                }]
+            },
+            options: {
+                indexAxis: 'y', // Barras horizontales
+                responsive: true,
+                maintainAspectRatio: true,
+                aspectRatio: 2.5,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            title: function(context) {
+                                return sortedGerencias[context[0].dataIndex][0];
+                            },
+                            label: function(context) {
+                                return `${context.parsed.x.toFixed(0)} horas/mes`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value.toFixed(0) + ' hrs';
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    },
+                    y: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function updateSavingsChart() {
+        const ctx = document.getElementById('savingsChart').getContext('2d');
+        
+        if (savingsChart) {
+            savingsChart.destroy();
+        }
+        
+        // Calcular ahorro monetario por gerencia
+        const gerenciaSavings = {};
+        filteredInitiatives.forEach(i => {
+            const gerenciaIds = i.idGerencia.split(',').map(g => g.trim());
+            const savings = parseFloat(i.costSavingAmount) || 0;
+            gerenciaIds.forEach(gId => {
+                const gerencia = gerencias.find(g => g.id === gId);
+                if (gerencia) {
+                    gerenciaSavings[gerencia.nombre] = (gerenciaSavings[gerencia.nombre] || 0) + savings;
+                }
+            });
+        });
+        
+        // Get top 5
+        const sortedGerencias = Object.entries(gerenciaSavings)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .reverse(); // Reverse para que el mayor esté arriba
+        
+        savingsChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: sortedGerencias.map(g => ''), // Sin labels
+                datasets: [{
+                    label: 'Millones COP',
+                    data: sortedGerencias.map(g => g[1]),
+                    backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                    borderRadius: 6,
+                    barThickness: 30
+                }]
+            },
+            options: {
+                indexAxis: 'y', // Barras horizontales
+                responsive: true,
+                maintainAspectRatio: true,
+                aspectRatio: 2.5,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            title: function(context) {
+                                return sortedGerencias[context[0].dataIndex][0];
+                            },
+                            label: function(context) {
+                                return `$${context.parsed.x.toFixed(1)} M COP`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + value.toFixed(1) + 'M';
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    },
+                    y: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function updateHoursProcesoChart() {
+        const ctx = document.getElementById('hoursProcesoChart').getContext('2d');
+        
+        if (hoursProcesoChart) {
+            hoursProcesoChart.destroy();
+        }
+        
+        // Calcular horas por proceso
+        const procesoHours = {};
+        filteredInitiatives.forEach(i => {
+            const procesoIds = i.proceso.split(',').map(p => p.trim());
+            const hours = parseFloat(i.manualHoursSaved) || 0;
+            procesoIds.forEach(pId => {
+                const proceso = procesos.find(p => p.id === pId);
+                if (proceso) {
+                    procesoHours[proceso.nombre] = (procesoHours[proceso.nombre] || 0) + hours;
+                }
+            });
+        });
+        
+        // Get top 5
+        const sortedProcesos = Object.entries(procesoHours)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .reverse();
+        
+        hoursProcesoChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: sortedProcesos.map(p => ''),
+                datasets: [{
+                    label: 'Horas/mes',
+                    data: sortedProcesos.map(p => p[1]),
+                    backgroundColor: 'rgba(147, 51, 234, 0.8)',
+                    borderRadius: 6,
+                    barThickness: 30
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: true,
+                aspectRatio: 1.5,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            title: function(context) {
+                                return sortedProcesos[context[0].dataIndex][0];
+                            },
+                            label: function(context) {
+                                return `${context.parsed.x.toFixed(0)} horas/mes`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return value.toFixed(0) + ' hrs';
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    },
+                    y: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function updateSavingsProcesoChart() {
+        const ctx = document.getElementById('savingsProcesoChart').getContext('2d');
+        
+        if (savingsProcesoChart) {
+            savingsProcesoChart.destroy();
+        }
+        
+        // Calcular ahorro monetario por proceso
+        const procesoSavings = {};
+        filteredInitiatives.forEach(i => {
+            const procesoIds = i.proceso.split(',').map(p => p.trim());
+            const savings = parseFloat(i.costSavingAmount) || 0;
+            procesoIds.forEach(pId => {
+                const proceso = procesos.find(p => p.id === pId);
+                if (proceso) {
+                    procesoSavings[proceso.nombre] = (procesoSavings[proceso.nombre] || 0) + savings;
+                }
+            });
+        });
+        
+        // Get top 5
+        const sortedProcesos = Object.entries(procesoSavings)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .reverse();
+        
+        savingsProcesoChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: sortedProcesos.map(p => ''),
+                datasets: [{
+                    label: 'Millones COP',
+                    data: sortedProcesos.map(p => p[1]),
+                    backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                    borderRadius: 6,
+                    barThickness: 30
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: true,
+                aspectRatio: 1.5,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            title: function(context) {
+                                return sortedProcesos[context[0].dataIndex][0];
+                            },
+                            label: function(context) {
+                                return `$${context.parsed.x.toFixed(1)} M COP`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + value.toFixed(1) + 'M';
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    },
+                    y: {
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    function updateRecentInitiativesTable() {
+        const container = document.getElementById('recentInitiativesTable');
+        const recent = filteredInitiatives.slice(0, 5);
+        
+        if (recent.length === 0) {
+            container.innerHTML = '<p class="text-brand-gray-dark text-center py-4">No hay iniciativas disponibles</p>';
+            return;
+        }
+        
+        container.innerHTML = recent.map(initiative => {
+            const quadrantColor = getQuadrantColor(initiative.quadrant);
+            const statusColors = {
+                'sin iniciar': 'bg-gray-100 text-gray-800',
+                'en desarrollo': 'bg-blue-100 text-blue-800',
+                'productivo': 'bg-green-100 text-green-800',
+                'cancelada': 'bg-red-100 text-red-800'
+            };
+            const statusClass = statusColors[initiative.estado] || 'bg-gray-100 text-gray-800';
+            
+            return `
+                <div class="flex items-center justify-between p-4 border border-brand-gray-medium rounded-xl hover:shadow-md transition-all cursor-pointer"
+                     onclick="showInitiativeDetail('${initiative.id}')">
+                    <div class="flex-1 min-w-0">
+                        <h4 class="font-semibold text-brand-black truncate">${initiative.name}</h4>
+                        <p class="text-sm text-brand-gray-dark">${initiative.doer}</p>
+                    </div>
+                    <div class="flex items-center space-x-3 ml-4">
+                        <span class="px-3 py-1 text-xs font-medium rounded-full ${statusClass}">
+                            ${initiative.estado}
+                        </span>
+                        <div class="text-right text-sm">
+                            <div class="font-medium">I: ${initiative.impactScore.toFixed(1)}</div>
+                            <div class="text-brand-gray-dark">V: ${initiative.viabilityScore.toFixed(1)}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    function updateStatsCards() {
+        const stats = {
+            quickWin: 0,
+            strategic: 0,
+            incremental: 0,
+            reconsider: 0
+        };
+
+        initiatives.forEach(initiative => {
+            switch(initiative.quadrant) {
+                case '1. Quick Win (Hacer Ahora)':
+                    stats.quickWin++;
+                    break;
+                case '2. Proyecto Estratégico (Planificar)':
+                    stats.strategic++;
+                    break;
+                case '3. Mejora Incremental (Delegar)':
+                    stats.incremental++;
+                    break;
+                case '4. Reconsiderar (Evitar)':
+                    stats.reconsider++;
+                    break;
+            }
+        });
+
+        document.getElementById('quickWinCount').textContent = stats.quickWin;
+        document.getElementById('strategicCount').textContent = stats.strategic;
+        document.getElementById('incrementalCount').textContent = stats.incremental;
+        document.getElementById('reconsiderCount').textContent = stats.reconsider;
+    }
+
+    function updatePriorityMatrix() {
+        const ctx = document.getElementById('priorityChart').getContext('2d');
+        
+        if (priorityChart) {
+            priorityChart.destroy();
+        }
+
+        // Plugin personalizado para cuadrantes (solo para este gráfico)
+        const quadrantPlugin = {
+            id: 'quadrantBackground',
+            beforeDraw: function(chart) {
+                // Solo aplicar si es el gráfico de priorización
+                if (chart.canvas.id !== 'priorityChart') return;
+                
+                const ctx = chart.ctx;
+                const chartArea = chart.chartArea;
+                const scaleX = chart.scales.x;
+                const scaleY = chart.scales.y;
+                
+                // Calcular posición del punto de división (3.5, 3.5)
+                const dividerX = scaleX.getPixelForValue(3.5);
+                const dividerY = scaleY.getPixelForValue(3.5);
+                
+                ctx.save();
+                
+                // Cuadrante 1: Quick Win (superior derecho) - Verde pastel
+                ctx.fillStyle = 'rgba(16, 185, 129, 0.08)';
+                ctx.fillRect(dividerX, chartArea.top, chartArea.right - dividerX, dividerY - chartArea.top);
+                
+                // Cuadrante 2: Estratégico (superior izquierdo) - Verde oscuro pastel
+                ctx.fillStyle = 'rgba(5, 150, 105, 0.08)';
+                ctx.fillRect(chartArea.left, chartArea.top, dividerX - chartArea.left, dividerY - chartArea.top);
+                
+                // Cuadrante 3: Incremental (inferior derecho) - Amarillo pastel
+                ctx.fillStyle = 'rgba(245, 158, 11, 0.08)';
+                ctx.fillRect(dividerX, dividerY, chartArea.right - dividerX, chartArea.bottom - dividerY);
+                
+                // Cuadrante 4: Reconsiderar (inferior izquierdo) - Rojo pastel
+                ctx.fillStyle = 'rgba(239, 68, 68, 0.08)';
+                ctx.fillRect(chartArea.left, dividerY, dividerX - chartArea.left, chartArea.bottom - dividerY);
+                
+                // Líneas divisoras
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([5, 5]);
+                
+                // Línea vertical en x = 3.5
+                ctx.beginPath();
+                ctx.moveTo(dividerX, chartArea.top);
+                ctx.lineTo(dividerX, chartArea.bottom);
+                ctx.stroke();
+                
+                // Línea horizontal en y = 3.5
+                ctx.beginPath();
+                ctx.moveTo(chartArea.left, dividerY);
+                ctx.lineTo(chartArea.right, dividerY);
+                ctx.stroke();
+                
+                // Etiquetas de cuadrantes
+                ctx.setLineDash([]);
+                ctx.font = 'bold 12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+                
+                // Quick Win
+                ctx.fillText('1. Quick Win', 
+                    dividerX + (chartArea.right - dividerX) / 2, 
+                    chartArea.top + 20);
+                
+                // Estratégico
+                ctx.fillText('2. Estratégico', 
+                    chartArea.left + (dividerX - chartArea.left) / 2, 
+                    chartArea.top + 20);
+                
+                // Incremental
+                ctx.fillText('3. Incremental', 
+                    dividerX + (chartArea.right - dividerX) / 2, 
+                    chartArea.bottom - 10);
+                
+                // Reconsiderar
+                ctx.fillText('4. Reconsiderar', 
+                    chartArea.left + (dividerX - chartArea.left) / 2, 
+                    chartArea.bottom - 10);
+                
+                ctx.restore();
+            }
+        };
+
+        const chartData = initiatives.map((initiative, index) => ({
+            x: initiative.viabilityScore,
+            y: initiative.impactScore,
+            label: initiative.name,
+            quadrant: initiative.quadrant,
+            index: index
+        }));
+
+        priorityChart = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'Iniciativas',
+                    data: chartData,
+                    backgroundColor: function(context) {
+                        const dataIndex = context.dataIndex;
+                        if (dataIndex !== undefined && initiatives[dataIndex]) {
+                            const quadrant = initiatives[dataIndex].quadrant;
+                            switch(quadrant) {
+                                case '1. Quick Win (Hacer Ahora)': return '#10B981';
+                                case '2. Proyecto Estratégico (Planificar)': return '#059669';
+                                case '3. Mejora Incremental (Delegar)': return '#F59E0B';
+                                case '4. Reconsiderar (Evitar)': return '#EF4444';
+                                default: return '#6B7280';
+                            }
+                        }
+                        return '#6B7280';
+                    },
+                    pointRadius: 8,
+                    pointHoverRadius: 10,
+                    borderColor: function(context) {
+                        const dataIndex = context.dataIndex;
+                        if (dataIndex !== undefined && initiatives[dataIndex]) {
+                            const quadrant = initiatives[dataIndex].quadrant;
+                            switch(quadrant) {
+                                case '1. Quick Win (Hacer Ahora)': return '#059669';
+                                case '2. Proyecto Estratégico (Planificar)': return '#047857';
+                                case '3. Mejora Incremental (Delegar)': return '#D97706';
+                                case '4. Reconsiderar (Evitar)': return '#DC2626';
+                                default: return '#4B5563';
+                            }
+                        }
+                        return '#4B5563';
+                    },
+                    borderWidth: 2
+                }]
+            },
+            plugins: [quadrantPlugin], // Agregar plugin solo a este gráfico
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Viabilidad',
+                            font: {
+                                size: 14,
+                                weight: 'bold'
+                            }
+                        },
+                        min: 0,
+                        max: 5,
+                        grid: {
+                            color: 'rgba(0,0,0,0.1)'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Impacto',
+                            font: {
+                                size: 14,
+                                weight: 'bold'
+                            }
+                        },
+                        min: 0,
+                        max: 5,
+                        grid: {
+                            color: 'rgba(0,0,0,0.1)'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const dataIndex = context.dataIndex;
+                                if (dataIndex !== undefined && initiatives[dataIndex]) {
+                                    const initiative = initiatives[dataIndex];
+                                    return [
+                                        initiative.name,
+                                        `Impacto: ${initiative.impactScore.toFixed(1)}`,
+                                        `Viabilidad: ${initiative.viabilityScore.toFixed(1)}`,
+                                        `Cuadrante: ${initiative.quadrant}`
+                                    ];
+                                }
+                                return `Iniciativa: (${context.parsed.x}, ${context.parsed.y})`;
+                            }
+                        }
+                    }
+                },
+                onClick: function(event, elements) {
+                    if (elements.length > 0) {
+                        const index = elements[0].index;
+                        showInitiativeDetail(initiatives[index].id);
+                    }
+                }
+            }
+        });
+    }
+
+    function updateRecentInitiatives() {
+        const container = document.getElementById('recentInitiatives');
+        const recentInitiatives = initiatives.slice(0, 5);
+
+        if (recentInitiatives.length === 0) {
+            container.innerHTML = '<p class="text-brand-gray-dark text-center py-4">No hay iniciativas disponibles</p>';
+            return;
+        }
+
+        container.innerHTML = recentInitiatives.map(initiative => {
+            const quadrantColor = getQuadrantColor(initiative.quadrant);
+            return `
+                <div class="flex items-center justify-between p-4 border border-brand-gray-medium rounded-lg hover:shadow-md transition-shadow cursor-pointer"
+                        onclick="showInitiativeDetail('${initiative.id}')">
+                    <div class="flex-1">
+                        <h4 class="font-medium text-brand-black">${initiative.name}</h4>
+                        <p class="text-sm text-brand-gray-dark">${initiative.doer}</p>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <span class="px-2 py-1 text-xs font-medium rounded-full" style="background-color: ${quadrantColor}20; color: ${quadrantColor}">
+                            ${initiative.quadrant}
+                        </span>
+                        <div class="text-right text-sm">
+                            <div class="font-medium">I: ${initiative.impactScore.toFixed(1)}</div>
+                            <div class="text-brand-gray-dark">V: ${initiative.viabilityScore.toFixed(1)}</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // List Functions
+    function updateList() {
+        const tbody = document.getElementById('initiativesList');
+        
+        if (initiatives.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center text-brand-gray-dark">No hay iniciativas disponibles</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = initiatives.map(initiative => {
+            const quadrantColor = getQuadrantColor(initiative.quadrant);
+            return `
+                <tr class="hover:bg-brand-gray-light cursor-pointer" onclick="showInitiativeDetail('${initiative.id}')">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm font-medium text-brand-black">${initiative.name}</div>
+                        <div class="text-sm text-brand-gray-dark">${initiative.description.substring(0, 60)}...</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-brand-black">${initiative.proceso}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-brand-black">${initiative.doer}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" 
+                                style="background-color: ${quadrantColor}20; color: ${quadrantColor}">
+                            ${initiative.quadrant}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-brand-black">${initiative.impactScore.toFixed(1)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-brand-black">${initiative.viabilityScore.toFixed(1)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button class="text-brand-primary hover:text-green-700 mr-3" onclick="event.stopPropagation(); openForm('${initiative.id}')">
+                            Editar
+                        </button>
+                        ${isAdmin ? `
+                        <button class="text-red-600 hover:text-red-800" onclick="event.stopPropagation(); deleteInitiative('${initiative.id}')">
+                            Eliminar
+                        </button>
+                        ` : ''}
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    // Detail Functions
+    function showInitiativeDetail(initiativeId) {
+        const initiative = initiatives.find(i => i.id === initiativeId);
+        if (!initiative) return;
+
+        currentInitiative = initiative;
+        
+        const container = document.getElementById('initiativeDetail');
+        const quadrantColor = getQuadrantColor(initiative.quadrant);
+        
+        container.innerHTML = `
+            <div class="border-l-4 pl-6 mb-6" style="border-color: ${quadrantColor}">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <h1 class="text-2xl font-bold text-brand-black mb-2">${initiative.name}</h1>
+                        <p class="text-brand-gray-dark mb-4">${initiative.description}</p>
+                    </div>
+                    <span class="px-3 py-1 text-sm font-semibold rounded-full text-white" 
+                            style="background-color: ${quadrantColor}">
+                        ${initiative.quadrant}
+                    </span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div>
+                    <h3 class="text-lg font-semibold text-brand-black mb-4">Información General</h3>
+                    <div class="space-y-3 text-sm">
+                        <div class="flex justify-between">
+                            <span class="text-brand-gray-dark">Responsable:</span>
+                            <span class="font-medium">${initiative.doer}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-brand-gray-dark">Fecha Pedido:</span>
+                            <span class="font-medium">${new Date(initiative.fechaPedido).toLocaleDateString('es-ES')}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-brand-gray-dark">Fecha Productiva:</span>
+                            <span class="font-medium">${initiative.fechaProductiva ? new Date(initiative.fechaProductiva).toLocaleDateString('es-ES') : 'No definida'}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-brand-gray-dark">Estado:</span>
+                            <span class="font-medium capitalize">${initiative.estado}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-brand-gray-dark">Gerencia:</span>
+                            <span class="font-medium">${initiative.gerencia}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-brand-gray-dark">Proceso:</span>
+                            <span class="font-medium">${initiative.proceso}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-brand-gray-dark">Oportunidad:</span>
+                            <span class="font-medium">${initiative.oportunidad}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-brand-gray-dark">Usuario Final:</span>
+                            <span class="font-medium">${initiative.usuarioFinal}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-brand-gray-dark">Horas Ahorradas:</span>
+                            <span class="font-medium">${initiative.manualHoursSaved}</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-brand-gray-dark">Ahorro Estimado:</span>
+                            <span class="font-medium">${formatCurrency(initiative.costSavingAmount)} COP</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-lg font-semibold text-brand-black mb-4">Puntuaciones</h3>
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <span class="text-brand-gray-dark">Impacto Total</span>
+                            <div class="flex items-center space-x-2">
+                                <div class="w-32 bg-brand-gray-medium rounded-full h-2">
+                                    <div class="bg-blue-600 h-2 rounded-full" style="width: ${(initiative.impactScore / 5) * 100}%"></div>
+                                </div>
+                                <span class="font-semibold">${initiative.impactScore.toFixed(1)}/5</span>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-brand-gray-dark">Viabilidad Total</span>
+                            <div class="flex items-center space-x-2">
+                                <div class="w-32 bg-brand-gray-medium rounded-full h-2">
+                                    <div class="bg-green-600 h-2 rounded-full" style="width: ${(initiative.viabilityScore / 5) * 100}%"></div>
+                                </div>
+                                <span class="font-semibold">${initiative.viabilityScore.toFixed(1)}/5</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-8">
+                <h3 class="text-lg font-semibold text-brand-black mb-4">Desglose de Criterios</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div>
+                        <h4 class="font-medium text-brand-gray-dark mb-3">Impacto</h4>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-brand-gray-dark">Pilar Estratégico:</span>
+                                <span>${initiative.strategicPillarImpact}/5</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-brand-gray-dark">Resolución de Dolor:</span>
+                                <span>${initiative.painResolutionImpact}/5</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-brand-gray-dark">Alcance:</span>
+                                <span>${initiative.scopeImpact}/5</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class="font-medium text-brand-gray-dark mb-3">Viabilidad</h4>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-brand-gray-dark">Complejidad:</span>
+                                <span>${initiative.complexityViability}/5</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-brand-gray-dark">Reutilización:</span>
+                                <span>${initiative.reusabilityViability}/5</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-brand-gray-dark">Datos:</span>
+                                <span>${initiative.dataViability}/5</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 class="font-medium text-brand-gray-dark mb-3">Valor</h4>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-brand-gray-dark">Reducción Manual:</span>
+                                <span>${initiative.manualReductionValue}/5</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-brand-gray-dark">Reducción Costos:</span>
+                                <span>${initiative.costReductionValue}/5</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-brand-gray-dark">Mejora Experiencia:</span>
+                                <span>${initiative.exImprovementValue}/5</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Update action buttons
+        const actionsContainer = document.getElementById('detailActions');
+        if (isAdmin) {
+            actionsContainer.innerHTML = `
+                <button onclick="openForm('${initiative.id}')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium">
+                    Editar
+                </button>
+                <button onclick="deleteInitiative('${initiative.id}')" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium">
+                    Eliminar
+                </button>
+            `;
+        } else {
+            actionsContainer.innerHTML = '';
+        }
+
+        showView('detail');
+    }
+
+    // Form Functions
+    function openForm(initiativeId = null) {
+        currentInitiative = initiativeId ? initiatives.find(i => i.id === initiativeId) : null;
+        
+        const modal = document.getElementById('formModal');
+        const title = document.getElementById('formTitle');
+        const form = document.getElementById('initiativeForm');
+
+        title.textContent = currentInitiative ? 'Editar Iniciativa' : 'Nueva Iniciativa';
+
+        // Limpiar selecciones anteriores
+        selectedGerencias = [];
+        selectedProcesos = [];
+
+        // Poblar dropdowns
+        populateGerenciasDropdown();
+        populateProcesosDropdown();
+        
+        // Inicializar selectores múltiples
+        initializeMultiSelect();
+
+        // Mostrar/ocultar campo gerencia según el tipo de usuario
+        const gerenciaFieldContainer = document.getElementById('gerenciaFieldContainer');
+        const idGerenciaHidden = document.getElementById('idGerenciaHidden');
+
+        if (isAdmin) {
+            // Admin: mostrar dropdown de gerencias
+            gerenciaFieldContainer.classList.remove('hidden');
+            idGerenciaHidden.value = '';
+        } else {
+            // User normal: ocultar dropdown y usar gerencia asignada
+            gerenciaFieldContainer.classList.add('hidden');
+            idGerenciaHidden.value = currentUserGerencia;
+        }
+
+        if (currentInitiative) {
+            // Populate form with existing data
+            form.elements['name'].value = currentInitiative.name || '';
+            form.elements['doer'].value = currentInitiative.doer || '';
+            form.elements['description'].value = currentInitiative.description || '';
+            
+            // Convertir fecha a formato YYYY-MM-DD para input type="date"
+            if (currentInitiative.fechaPedido) {
+                try {
+                    const date = new Date(currentInitiative.fechaPedido);
+                    if (!isNaN(date.getTime())) {
+                        form.elements['fechaPedido'].value = date.toISOString().split('T')[0];
+                    } else {
+                        form.elements['fechaPedido'].value = '';
+                    }
+                } catch (e) {
+                    console.error('Error parsing fecha:', e);
+                    form.elements['fechaPedido'].value = '';
+                }
+            } else {
+                form.elements['fechaPedido'].value = '';
+            }
+            
+            // Asignar estado
+            const estadoValue = currentInitiative.estado || 'sin iniciar';
+            document.getElementById('estado').value = estadoValue;
+            
+            // Actualizar el texto visible del selector de estado
+            const estadoTextMap = {
+                'sin iniciar': 'Sin Iniciar',
+                'en desarrollo': 'En Desarrollo',
+                'productivo': 'Productivo',
+                'cancelada': 'Cancelada'
+            };
+            document.getElementById('estadoSelectedText').textContent = estadoTextMap[estadoValue] || 'Sin Iniciar';
+            
+            // Asignar gerencias (puede ser múltiple separado por comas)
+            if (isAdmin && currentInitiative.idGerencia) {
+                const gerenciaIds = currentInitiative.idGerencia.split(',').map(id => id.trim()).filter(id => id);
+                selectedGerencias = gerenciaIds;
+                renderGerenciaTags();
+                updateGerenciaHiddenInput();
+                populateGerenciasDropdown(); // Repoblar para actualizar checkboxes
+            } else if (!isAdmin) {
+                idGerenciaHidden.value = currentInitiative.idGerencia || currentUserGerencia;
+            }
+            
+            // Asignar procesos (puede ser múltiple separado por comas)
+            if (currentInitiative.proceso) {
+                const procesoIds = currentInitiative.proceso.split(',').map(id => id.trim()).filter(id => id);
+                selectedProcesos = procesoIds;
+                renderProcesoTags();
+                updateProcesoHiddenInput();
+                populateProcesosDropdown(); // Repoblar para actualizar checkboxes
+            }
+            
+            form.elements['oportunidad'].value = currentInitiative.oportunidad || '';
+            form.elements['usuarioFinal'].value = currentInitiative.usuarioFinal || '';
+            form.elements['manualHoursSaved'].value = currentInitiative.manualHoursSaved || '';
+            form.elements['costSavingAmount'].value = currentInitiative.costSavingAmount || '';
+
+            // Set slider values
+            const sliders = [
+                'strategicPillarImpact', 'painResolutionImpact', 'scopeImpact',
+                'complexityViability', 'reusabilityViability', 'dataViability',
+                'manualReductionValue', 'costReductionValue', 'exImprovementValue'
+            ];
+
+            sliders.forEach(slider => {
+                const element = form.elements[slider];
+                const valueSpan = document.getElementById(slider + 'Value');
+                const value = currentInitiative[slider] || 3;
+                element.value = value;
+                valueSpan.textContent = value;
+            });
+        } else {
+            // Reset form
+            form.reset();
+            form.elements['fechaPedido'].value = new Date().toISOString().split('T')[0];
+            
+            // Reset estado
+            document.getElementById('estado').value = 'sin iniciar';
+            document.getElementById('estadoSelectedText').textContent = 'Sin Iniciar';
+
+            // Asignar gerencia según tipo de usuario
+            if (!isAdmin) {
+                idGerenciaHidden.value = currentUserGerencia;
+            }
+            // Para admin, las gerencias ya están vacías en selectedGerencias
+
+            // Reset sliders to default value
+            const sliders = [
+                'strategicPillarImpact', 'painResolutionImpact', 'scopeImpact',
+                'complexityViability', 'reusabilityViability', 'dataViability',
+                'manualReductionValue', 'costReductionValue', 'exImprovementValue'
+            ];
+
+            sliders.forEach(slider => {
+                const element = form.elements[slider];
+                const valueSpan = document.getElementById(slider + 'Value');
+                element.value = 3;
+                valueSpan.textContent = 3;
+            });
+        }
+
+        modal.classList.remove('hidden');
+    }
+
+    // Variables globales para selectores múltiples
+    let selectedGerencias = [];
+    let selectedProcesos = [];
+
+    function initializeMultiSelect() {
+        // Gerencias selector
+        const gerenciaSelector = document.getElementById('gerenciaSelector');
+        const gerenciaDropdown = document.getElementById('gerenciaDropdown');
+        const gerenciaSearch = document.getElementById('gerenciaSearch');
+
+        if (gerenciaSelector) {
+            gerenciaSelector.addEventListener('click', (e) => {
+                e.stopPropagation();
+                gerenciaDropdown.classList.toggle('hidden');
+                const procesoDropdown = document.getElementById('procesoDropdown');
+                const estadoDropdown = document.getElementById('estadoDropdown');
+                if (procesoDropdown) procesoDropdown.classList.add('hidden');
+                if (estadoDropdown) estadoDropdown.classList.add('hidden');
+            });
+
+            gerenciaSearch.addEventListener('click', (e) => {
+                e.stopPropagation(); // Evitar que se cierre al hacer clic en el input
+            });
+
+            gerenciaSearch.addEventListener('input', (e) => {
+                filterGerencias(e.target.value);
+            });
+        }
+
+        // Procesos selector
+        const procesoSelector = document.getElementById('procesoSelector');
+        const procesoDropdown = document.getElementById('procesoDropdown');
+        const procesoSearch = document.getElementById('procesoSearch');
+
+        if (procesoSelector) {
+            procesoSelector.addEventListener('click', (e) => {
+                e.stopPropagation();
+                procesoDropdown.classList.toggle('hidden');
+                const gerenciaDropdown = document.getElementById('gerenciaDropdown');
+                const estadoDropdown = document.getElementById('estadoDropdown');
+                if (gerenciaDropdown) gerenciaDropdown.classList.add('hidden');
+                if (estadoDropdown) estadoDropdown.classList.add('hidden');
+            });
+
+            procesoSearch.addEventListener('click', (e) => {
+                e.stopPropagation(); // Evitar que se cierre al hacer clic en el input
+            });
+
+            procesoSearch.addEventListener('input', (e) => {
+                filterProcesos(e.target.value);
+            });
+        }
+
+        // Estado selector (selección simple)
+        const estadoSelector = document.getElementById('estadoSelector');
+        const estadoDropdown = document.getElementById('estadoDropdown');
+        
+        if (estadoSelector) {
+            estadoSelector.addEventListener('click', (e) => {
+                e.stopPropagation();
+                estadoDropdown.classList.toggle('hidden');
+                const gerenciaDropdown = document.getElementById('gerenciaDropdown');
+                const procesoDropdown = document.getElementById('procesoDropdown');
+                if (gerenciaDropdown) gerenciaDropdown.classList.add('hidden');
+                if (procesoDropdown) procesoDropdown.classList.add('hidden');
+            });
+
+            // Event listeners para las opciones de estado
+            const estadoOptions = document.querySelectorAll('.estado-option');
+            estadoOptions.forEach(option => {
+                option.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const value = option.dataset.value;
+                    const text = option.textContent.trim();
+                    
+                    // Actualizar el texto visible y el valor hidden
+                    document.getElementById('estadoSelectedText').textContent = text;
+                    document.getElementById('estado').value = value;
+                    
+                    // Cerrar el dropdown
+                    estadoDropdown.classList.add('hidden');
+                });
+            });
+        }
+
+        // Cerrar dropdowns al hacer clic fuera
+        document.addEventListener('click', () => {
+            const gerenciaDropdown = document.getElementById('gerenciaDropdown');
+            const procesoDropdown = document.getElementById('procesoDropdown');
+            const estadoDropdown = document.getElementById('estadoDropdown');
+            
+            if (gerenciaDropdown) gerenciaDropdown.classList.add('hidden');
+            if (procesoDropdown) procesoDropdown.classList.add('hidden');
+            if (estadoDropdown) estadoDropdown.classList.add('hidden');
+        });
+    }
+
+    function populateGerenciasDropdown() {
+        const optionsContainer = document.getElementById('gerenciaOptions');
+        if (!optionsContainer) return;
+
+        // Ordenar alfabéticamente por nombre
+        const sortedGerencias = [...gerencias].sort((a, b) => 
+            a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' })
+        );
+        
+        optionsContainer.innerHTML = sortedGerencias.map(gerencia => `
+            <label class="flex items-center p-2 hover:bg-brand-gray-light rounded-lg cursor-pointer transition-colors">
+                <input type="checkbox" 
+                       value="${gerencia.id}" 
+                       data-name="${gerencia.nombre}"
+                       class="gerencia-checkbox w-4 h-4 text-brand-primary border-brand-gray-medium rounded focus:ring-brand-primary focus:ring-2"
+                       ${selectedGerencias.includes(gerencia.id) ? 'checked' : ''}>
+                <span class="ml-3 text-sm text-brand-black">${gerencia.nombre}</span>
+            </label>
+        `).join('');
+
+        // Agregar event listeners a los checkboxes
+        optionsContainer.querySelectorAll('.gerencia-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                updateGerenciaSelection(e.target.value, e.target.dataset.name, e.target.checked);
+            });
+        });
+    }
+
+    function populateProcesosDropdown() {
+        const optionsContainer = document.getElementById('procesoOptions');
+        if (!optionsContainer) return;
+        
+        // Ordenar alfabéticamente por nombre
+        const sortedProcesos = [...procesos].sort((a, b) => 
+            a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' })
+        );
+        
+        optionsContainer.innerHTML = sortedProcesos.map(proceso => `
+            <label class="flex items-center p-2 hover:bg-brand-gray-light rounded-lg cursor-pointer transition-colors">
+                <input type="checkbox" 
+                       value="${proceso.id}" 
+                       data-name="${proceso.nombre}"
+                       class="proceso-checkbox w-4 h-4 text-brand-primary border-brand-gray-medium rounded focus:ring-brand-primary focus:ring-2"
+                       ${selectedProcesos.includes(proceso.id) ? 'checked' : ''}>
+                <span class="ml-3 text-sm text-brand-black">${proceso.nombre}</span>
+            </label>
+        `).join('');
+
+        // Agregar event listeners a los checkboxes
+        optionsContainer.querySelectorAll('.proceso-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                updateProcesoSelection(e.target.value, e.target.dataset.name, e.target.checked);
+            });
+        });
+    }
+
+    function updateGerenciaSelection(id, name, isChecked) {
+        if (isChecked) {
+            if (!selectedGerencias.includes(id)) {
+                selectedGerencias.push(id);
+            }
+        } else {
+            selectedGerencias = selectedGerencias.filter(g => g !== id);
+        }
+        renderGerenciaTags();
+        updateGerenciaHiddenInput();
+    }
+
+    function updateProcesoSelection(id, name, isChecked) {
+        if (isChecked) {
+            if (!selectedProcesos.includes(id)) {
+                selectedProcesos.push(id);
+            }
+        } else {
+            selectedProcesos = selectedProcesos.filter(p => p !== id);
+        }
+        renderProcesoTags();
+        updateProcesoHiddenInput();
+    }
+
+    function renderGerenciaTags() {
+        const tagsContainer = document.getElementById('gerenciaSelectedTags');
+        const placeholder = document.getElementById('gerenciaPlaceholder');
+        
+        if (selectedGerencias.length === 0) {
+            tagsContainer.innerHTML = '';
+            placeholder.classList.remove('hidden');
+            return;
+        }
+        
+        placeholder.classList.add('hidden');
+        tagsContainer.innerHTML = selectedGerencias.map(id => {
+            const gerencia = gerencias.find(g => g.id === id);
+            return gerencia ? `
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-brand-primary text-white">
+                    ${gerencia.nombre}
+                    <button type="button" onclick="removeGerencia('${id}')" class="ml-2 hover:text-brand-secondary">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </span>
+            ` : '';
+        }).join('');
+    }
+
+    function renderProcesoTags() {
+        const tagsContainer = document.getElementById('procesoSelectedTags');
+        const placeholder = document.getElementById('procesoPlaceholder');
+        
+        if (selectedProcesos.length === 0) {
+            tagsContainer.innerHTML = '';
+            placeholder.classList.remove('hidden');
+            return;
+        }
+        
+        placeholder.classList.add('hidden');
+        tagsContainer.innerHTML = selectedProcesos.map(id => {
+            const proceso = procesos.find(p => p.id === id);
+            return proceso ? `
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-brand-primary text-white">
+                    ${proceso.nombre}
+                    <button type="button" onclick="removeProceso('${id}')" class="ml-2 hover:text-brand-secondary">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </span>
+            ` : '';
+        }).join('');
+    }
+
+    function removeGerencia(id) {
+        selectedGerencias = selectedGerencias.filter(g => g !== id);
+        renderGerenciaTags();
+        updateGerenciaHiddenInput();
+        // Actualizar checkbox
+        const checkbox = document.querySelector(`.gerencia-checkbox[value="${id}"]`);
+        if (checkbox) checkbox.checked = false;
+    }
+
+    function removeProceso(id) {
+        selectedProcesos = selectedProcesos.filter(p => p !== id);
+        renderProcesoTags();
+        updateProcesoHiddenInput();
+        // Actualizar checkbox
+        const checkbox = document.querySelector(`.proceso-checkbox[value="${id}"]`);
+        if (checkbox) checkbox.checked = false;
+    }
+
+    function updateGerenciaHiddenInput() {
+        const hiddenInput = document.getElementById('idGerencia');
+        if (hiddenInput) {
+            hiddenInput.value = selectedGerencias.join(',');
+        }
+    }
+
+    function updateProcesoHiddenInput() {
+        const hiddenInput = document.getElementById('proceso');
+        if (hiddenInput) {
+            hiddenInput.value = selectedProcesos.join(',');
+        }
+    }
+
+    function filterGerencias(searchTerm) {
+        const optionsContainer = document.getElementById('gerenciaOptions');
+        const labels = optionsContainer.querySelectorAll('label');
+        
+        labels.forEach(label => {
+            const text = label.textContent.toLowerCase();
+            if (text.includes(searchTerm.toLowerCase())) {
+                label.style.display = 'flex';
+            } else {
+                label.style.display = 'none';
+            }
+        });
+    }
+
+    function filterProcesos(searchTerm) {
+        const optionsContainer = document.getElementById('procesoOptions');
+        const labels = optionsContainer.querySelectorAll('label');
+        
+        labels.forEach(label => {
+            const text = label.textContent.toLowerCase();
+            if (text.includes(searchTerm.toLowerCase())) {
+                label.style.display = 'flex';
+            } else {
+                label.style.display = 'none';
+            }
+        });
+    }
+
+    function closeForm() {
+        document.getElementById('formModal').classList.add('hidden');
+        currentInitiative = null;
+        // Limpiar selecciones múltiples
+        selectedGerencias = [];
+        selectedProcesos = [];
+        renderGerenciaTags();
+        renderProcesoTags();
+    }
+
+    async function handleFormSubmit(event) {
+        event.preventDefault();
+        
+        // Validar selecciones múltiples antes de continuar
+        if (isAdmin && selectedGerencias.length === 0) {
+            showNotification('Error: Debe seleccionar al menos una gerencia', 'error');
+            return;
+        }
+
+        if (selectedProcesos.length === 0) {
+            showNotification('Error: Debe seleccionar al menos un proceso', 'error');
+            return;
+        }
+        
+        const formData = new FormData(event.target);
+        const data = {};
+        
+        for (let [key, value] of formData.entries()) {
+            if (['strategicPillarImpact', 'painResolutionImpact', 'scopeImpact',
+                    'complexityViability', 'reusabilityViability', 'dataViability',
+                    'manualReductionValue', 'costReductionValue', 'exImprovementValue'].includes(key)) {
+                data[key] = parseInt(value);
+            } else {
+                data[key] = value;
+            }
+        }
+
+        // Asegurar que idGerencia esté correctamente asignado
+        if (isAdmin) {
+            // Admin: usar valor del hidden input que tiene las gerencias separadas por comas
+            data.idGerencia = document.getElementById('idGerencia').value;
+        } else {
+            // User normal: usar valor del campo hidden
+            data.idGerencia = document.getElementById('idGerenciaHidden').value || currentUserGerencia;
+        }
+
+        // Validar que idGerencia no esté vacío
+        if (!data.idGerencia) {
+            showNotification('Error: No se pudo determinar la gerencia', 'error');
+            return;
+        }
+
+        // Prevenir doble envío
+        const submitBtn = document.querySelector('button[type="submit"]');
+        if (submitBtn.disabled) return;
+        
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Guardando...';
+
+        try {
+            const result = await saveInitiative(data);
+            if (result.success) {
+                await loadInitiatives();
+                updateDashboard();
+                updateList();
+                closeForm();
+                showNotification(result.message || 'Iniciativa guardada exitosamente', 'success');
+            } else {
+                showNotification(result.error || 'Error al guardar la iniciativa', 'error');
+            }
+        } catch (error) {
+            console.error('Error saving initiative:', error);
+            showNotification('Error al guardar la iniciativa', 'error');
+        } finally {
+            // Rehabilitar el botón
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Guardar';
+        }
+    }
+
+    // Utility Functions
+    function getQuadrantColor(quadrant) {
+        switch(quadrant) {
+            case '1. Quick Win (Hacer Ahora)': return '#10B981';
+            case '2. Proyecto Estratégico (Planificar)': return '#059669';
+            case '3. Mejora Incremental (Delegar)': return '#F59E0B';
+            case '4. Reconsiderar (Evitar)': return '#EF4444';
+            default: return '#6B7280';
+        }
+    }
+
+    function formatCurrency(amount) {
+        const num = parseFloat(amount) || 0;
+        return new Intl.NumberFormat('es-CO', {
+            style: 'currency',
+            currency: 'COP',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0
+        }).format(num * 1000000);
+    }
+
+    function showNotification(message, type = 'success') {
+        const notification = document.getElementById('notification');
+        const messageElement = document.getElementById('notificationMessage');
+        
+        messageElement.textContent = message;
+        
+        if (type === 'error') {
+            notification.classList.remove('bg-green-600');
+            notification.classList.add('bg-red-600');
+        } else {
+            notification.classList.remove('bg-red-600');
+            notification.classList.add('bg-green-600');
+        }
+        
+        notification.classList.remove('hidden');
+        
+        setTimeout(() => {
+            notification.classList.add('hidden');
+        }, 3000);
+    }
+
+    // Variable global para almacenar el ID de la iniciativa a eliminar
+    let initiativeToDelete = null;
+
+    function openDeleteModal(initiativeId) {
+        initiativeToDelete = initiativeId;
+        const modal = document.getElementById('deleteModal');
+        modal.classList.remove('hidden');
+        
+        // Configurar el botón de confirmación
+        const confirmBtn = document.getElementById('confirmDeleteBtn');
+        confirmBtn.onclick = () => confirmDelete();
+    }
+
+    function closeDeleteModal() {
+        initiativeToDelete = null;
+        const modal = document.getElementById('deleteModal');
+        modal.classList.add('hidden');
+    }
+
+    async function confirmDelete() {
+        if (!initiativeToDelete) {
+            return;
+        }
+
+        const initiativeId = initiativeToDelete;
+        closeDeleteModal();
+
+        // Mostrar loading state
+        showLoading(true);
+
+        try {
+            const result = await new Promise((resolve, reject) => {
+                google.script.run
+                    .withSuccessHandler((result) => {
+                        const response = typeof result === 'string' ? JSON.parse(result) : result;
+                        resolve(response);
+                    })
+                    .withFailureHandler(reject)
+                    .deleteInitiativeFromWeb(initiativeId);
+            });
+
+            if (result.success) {
+                // Recargar iniciativas desde el servidor
+                await loadInitiatives();
+                
+                // Mostrar notificación de éxito
+                showNotification(result.message || 'Iniciativa eliminada exitosamente', 'success');
+                
+                // Redirigir al dashboard y actualizar vistas
+                showView('dashboard');
+                updateDashboard();
+                updateList();
+            } else {
+                showNotification(result.error || 'Error al eliminar la iniciativa', 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting initiative:', error);
+            showNotification('Error al eliminar la iniciativa', 'error');
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    // Función legacy mantenida para compatibilidad
+    function deleteInitiative(initiativeId) {
+        openDeleteModal(initiativeId);
+    }
+</script>

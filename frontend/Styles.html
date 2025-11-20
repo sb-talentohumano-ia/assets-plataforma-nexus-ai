@@ -1,0 +1,951 @@
+<style>
+    /* ============================================================================
+       NEXUS AI - ESTILOS PERSONALIZADOS
+       Sistema de Priorización de Iniciativas
+       ============================================================================ */
+
+    :root {
+        --brand-primary: #009C56;
+        --brand-secondary: #FDEC30;
+        --brand-green-light: #70B649;
+        --brand-green-medium: #61C295;
+        --brand-yellow-gold: #FFC200;
+        --brand-black: #2B2B2B;
+        --brand-gray-dark: #696868;
+        --brand-gray-medium: #CCCCCC;
+        --brand-gray-light: #F7F7F7;
+        --brand-white: #FFFFFF;
+
+        /* Colores de cuadrantes */
+        --quick-win: #70B649;   
+        --strategic: #009C56;
+        --incremental: #FFC200;
+        --reconsider: #696868;
+    }
+
+    /* ============================================================================
+       RESET Y BASE
+       ============================================================================ */
+
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    html {
+        font-size: 16px;
+        scroll-behavior: smooth;
+    }
+
+    body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ============================================================================
+       ANIMACIONES PERSONALIZADAS
+       ============================================================================ */
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateX(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @keyframes pulse {
+        0%, 100% {
+            opacity: 1;
+        }
+        50% {
+            opacity: 0.5;
+        }
+    }
+
+    /* ============================================================================
+       COMPONENTES REUTILIZABLES
+       ============================================================================ */
+
+    .fade-in {
+        animation: fadeIn 0.3s ease-in-out;
+    }
+
+    .slide-in {
+        animation: slideIn 0.3s ease-in-out;
+    }
+
+    /* Scroll suave */
+    .smooth-scroll {
+        scroll-behavior: smooth;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* ============================================================================
+       BADGES Y ETIQUETAS
+       ============================================================================ */
+
+    .badge-admin {
+        background: linear-gradient(135deg, var(--brand-primary), var(--brand-green-medium));
+        color: var(--brand-white);
+        font-weight: 600;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+
+    .badge-user {
+        background: var(--brand-gray-light);
+        color: var(--brand-gray-dark);
+        border: 1px solid var(--brand-gray-medium);
+    }
+
+    /* ============================================================================
+       MODAL DE ACCESO NO AUTORIZADO
+       ============================================================================ */
+
+    .unauthorized-modal {
+        animation: fadeIn 0.5s ease-in-out;
+    }
+
+    .unauthorized-icon {
+        animation: pulse 2s infinite;
+    }
+
+    /* ============================================================================
+       LOADING STATES
+       ============================================================================ */
+
+    .loading-spinner {
+        border-top-color: var(--brand-primary);
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    /* ============================================================================
+       TRANSICIONES SUAVES
+       ============================================================================ */
+
+    .transition-all {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .transition-transform {
+        transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .transition-opacity {
+        transition: opacity 0.2s ease-in-out;
+    }
+
+    /* ============================================================================
+       HOVER EFFECTS
+       ============================================================================ */
+
+    .hover-lift:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .hover-scale:hover {
+        transform: scale(1.05);
+    }
+
+    /* ============================================================================
+       GLASS MORPHISM (OPCIONAL)
+       ============================================================================ */
+
+    .glass {
+        background: rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+
+    /* ============================================================================
+       CUADRANTES - COLORES
+       ============================================================================ */
+
+    .quadrant-quick-win {
+        background: linear-gradient(135deg, var(--quick-win), var(--brand-green-medium));
+    }
+
+    .quadrant-strategic {
+        background: linear-gradient(135deg, var(--strategic), var(--brand-primary));
+    }
+
+    .quadrant-incremental {
+        background: linear-gradient(135deg, var(--incremental), var(--brand-yellow-gold));
+    }
+
+    .quadrant-reconsider {
+        background: linear-gradient(135deg, var(--reconsider), var(--brand-gray-dark));
+    }
+
+    /* ============================================================================
+       ACCESIBILIDAD
+       ============================================================================ */
+
+    .sr-only {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border-width: 0;
+    }
+
+    /* Focus visible para teclado */
+    *:focus-visible {
+        outline: 2px solid var(--brand-primary);
+        outline-offset: 2px;
+    }
+
+    /* ============================================================================
+       RESPONSIVE UTILITIES
+       ============================================================================ */
+
+    @media (max-width: 640px) {
+        html {
+            font-size: 14px;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+        }
+    }
+
+    /* ============================================================================
+       PRINT STYLES
+       ============================================================================ */
+
+    @media print {
+        .no-print {
+            display: none !important;
+        }
+
+        body {
+            background: white;
+            color: black;
+        }
+
+        .shadow-sm,
+        .shadow,
+        .shadow-md,
+        .shadow-lg {
+            box-shadow: none !important;
+        }
+    }
+
+    /* ============================================================================
+       DARK MODE (PREPARADO PARA FUTURO)
+       ============================================================================ */
+
+    @media (prefers-color-scheme: dark) {
+        /* Los estilos de dark mode se pueden agregar aquí en el futuro */
+    }
+
+    /* ============================================================================
+       SIDEBAR NAVIGATION
+       ============================================================================ */
+
+    .nav-item {
+        position: relative;
+        color: var(--brand-gray-dark);
+        overflow: hidden;
+    }
+
+    .nav-item::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 4px;
+        background: var(--brand-primary);
+        transform: scaleY(0);
+        transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .nav-item:hover {
+        background: var(--brand-gray-light);
+        color: var(--brand-primary);
+    }
+
+    .nav-item.active {
+        background: rgba(0, 156, 86, 0.08);
+        color: var(--brand-primary);
+        font-weight: 600;
+    }
+
+    .nav-item.active::before {
+        transform: scaleY(1);
+    }
+
+    /* ============================================================================
+       SELECT DROPDOWNS (MENÚS DESPLEGABLES)
+       ============================================================================ */
+
+    select {
+        appearance: none;
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23696868' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+        background-size: 1.25em 1.25em;
+        padding-right: 2.5rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-weight: 400;
+        color: var(--brand-black);
+    }
+
+    select:hover {
+        border-color: var(--brand-primary);
+        box-shadow: 0 0 0 2px rgba(0, 156, 86, 0.1);
+    }
+
+    select:focus {
+        outline: none;
+        border-color: var(--brand-primary);
+        box-shadow: 0 0 0 3px rgba(0, 156, 86, 0.2);
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23009C56' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    }
+
+    select:disabled {
+        background-color: var(--brand-gray-light);
+        cursor: not-allowed;
+        opacity: 0.6;
+    }
+
+    /* Estilo mejorado para las opciones del select */
+    select option {
+        padding: 0.75rem;
+        background: white;
+        color: var(--brand-black);
+        font-weight: 400;
+    }
+
+    select option:hover,
+    select option:checked {
+        background: rgba(0, 156, 86, 0.1);
+        color: var(--brand-primary);
+        font-weight: 500;
+    }
+
+    select option:disabled {
+        color: var(--brand-gray-dark);
+        opacity: 0.5;
+    }
+
+    /* ============================================================================
+       RANGE SLIDERS (INPUTS DE RANGO)
+       ============================================================================ */
+
+    .slider::-webkit-slider-thumb {
+        appearance: none;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--brand-primary);
+        cursor: pointer;
+        border: 2px solid white;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        transition: all 0.2s ease;
+    }
+
+    .slider::-webkit-slider-thumb:hover {
+        transform: scale(1.1);
+        box-shadow: 0 3px 8px rgba(0, 156, 86, 0.4);
+    }
+
+    .slider::-moz-range-thumb {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: var(--brand-primary);
+        cursor: pointer;
+        border: 2px solid white;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        transition: all 0.2s ease;
+    }
+
+    .slider::-moz-range-thumb:hover {
+        transform: scale(1.1);
+        box-shadow: 0 3px 8px rgba(0, 156, 86, 0.4);
+    }
+
+    .slider::-webkit-slider-track {
+        background: var(--brand-gray-medium);
+        border-radius: 5px;
+        height: 8px;
+    }
+
+    .slider::-moz-range-track {
+        background: var(--brand-gray-medium);
+        border-radius: 5px;
+        height: 8px;
+    }
+
+    /* ============================================================================
+       TABLE HOVER EFFECTS
+       ============================================================================ */
+
+    tbody tr {
+        transition: background-color 0.15s ease;
+    }
+
+    tbody tr:hover {
+        background-color: rgba(0, 156, 86, 0.03);
+    }
+
+    /* ============================================================================
+       SCROLL BAR CUSTOM
+       ============================================================================ */
+
+    ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+
+    ::-webkit-scrollbar-track {
+        background: var(--brand-gray-light);
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: var(--brand-gray-medium);
+        border-radius: 5px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: var(--brand-gray-dark);
+    }
+
+    /* ============================================================================
+       SIDEBAR 2025 - COLAPSABLE
+       ============================================================================ */
+
+    #sidebar {
+        transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    #sidebar.collapsed {
+        width: 80px;
+    }
+
+    #sidebar.collapsed nav {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+
+    #sidebar.collapsed .nav-text,
+    #sidebar.collapsed #sidebarTitle {
+        opacity: 0;
+        width: 0;
+        overflow: hidden;
+    }
+
+    #sidebar.collapsed #sidebarLogo {
+        height: 40px;
+        width: 40px;
+        margin: 0 auto !important;
+        display: block;
+    }
+
+    #sidebar.collapsed .logo-header {
+        padding: 1rem;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    #sidebar.collapsed .nav-item {
+        position: relative;
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    #sidebar.collapsed .nav-item svg {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+
+    #sidebar.collapsed .nav-item::before {
+        display: none;
+    }
+
+    #sidebar.collapsed #newInitiativeBtn {
+        position: relative;
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    #sidebar.collapsed #newInitiativeBtn svg {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+
+    #sidebar.collapsed #sidebarUser {
+        padding: 0.75rem;
+    }
+
+    #sidebar.collapsed #sidebarUser .flex {
+        justify-content: center;
+    }
+
+    #mainContent {
+        transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    #mainContent.expanded {
+        margin-left: 80px;
+    }
+
+    .nav-item {
+        color: var(--brand-gray-dark);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+    }
+
+    .nav-item:not(.opacity-40):not(.cursor-not-allowed):hover {
+        background-color: rgba(0, 156, 86, 0.08);
+        color: var(--brand-primary);
+        transform: translateX(4px);
+    }
+
+    #sidebar.collapsed .nav-item:not(.opacity-40):not(.cursor-not-allowed):hover {
+        transform: scale(1.05);
+    }
+
+    .nav-item.active {
+        background-color: var(--brand-primary);
+        color: white;
+        box-shadow: 0 4px 12px rgba(0, 156, 86, 0.25);
+    }
+
+    .nav-item.active::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 4px;
+        height: 28px;
+        background-color: var(--brand-secondary);
+        border-radius: 0 4px 4px 0;
+    }
+
+    #sidebar.collapsed .nav-item.active::before {
+        display: none;
+    }
+
+    /* Toggle Button Animation */
+    #toggleIcon {
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    #sidebar.collapsed #toggleIcon {
+        transform: rotate(180deg);
+    }
+
+    /* ============================================================================
+       TABS PILL STYLE 2025
+       ============================================================================ */
+
+    .tab-button {
+        color: var(--brand-gray-dark);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+    }
+
+    .tab-button:hover:not(.active) {
+        color: var(--brand-primary);
+        background-color: rgba(0, 156, 86, 0.05);
+    }
+
+    .tab-button.active {
+        background: linear-gradient(135deg, var(--brand-primary), var(--brand-green-medium));
+        color: white;
+        box-shadow: 0 6px 20px rgba(0, 156, 86, 0.25);
+        transform: scale(1.02);
+    }
+
+    /* ============================================================================
+       MODERN CARD STYLES
+       ============================================================================ */
+
+    .rounded-2xl {
+        border-radius: 1rem;
+    }
+
+    .shadow-lg {
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Gradient Cards Animation */
+    .bg-gradient-to-br {
+        position: relative;
+        overflow: hidden;
+    }
+
+    .bg-gradient-to-br::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), transparent);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .bg-gradient-to-br:hover::before {
+        opacity: 1;
+    }
+
+    /* ============================================================================
+       FILTERS AND SELECTS MODERN STYLE
+       ============================================================================ */
+
+    select.rounded-xl, select.filter-select {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23696868'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+        background-size: 1rem;
+        padding-right: 2rem;
+        cursor: pointer;
+    }
+
+    /* Filtros compactos estilo Power BI */
+    .filter-select {
+        min-width: 160px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+
+    .filter-select:hover {
+        border-color: var(--brand-primary);
+        box-shadow: 0 0 0 3px rgba(0, 156, 86, 0.1);
+    }
+
+    .filter-select:focus {
+        border-color: var(--brand-primary);
+        box-shadow: 0 0 0 3px rgba(0, 156, 86, 0.15);
+    }
+
+    #clearFilters:hover {
+        transform: scale(1.05);
+    }
+
+    /* ============================================================================
+       ANIMATIONS AND TRANSITIONS
+       ============================================================================ */
+
+    @keyframes slideInRight {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+
+    .animate-slide-in {
+        animation: slideInRight 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .animate-fade-in {
+        animation: fadeIn 0.3s ease-in-out;
+    }
+
+    /* ============================================================================
+       MULTI-PHASE WIZARD STYLES
+       ============================================================================ */
+
+    /* Wizard Container */
+    #createInitiativeView {
+        animation: fadeIn 0.4s ease-in-out;
+    }
+
+    /* Phase Content */
+    .phase-content {
+        animation: fadeIn 0.3s ease-in-out;
+    }
+
+    .phase-content.hidden {
+        display: none;
+    }
+
+    /* Stepper Styles */
+    .step-container {
+        position: relative;
+        z-index: 10;
+    }
+
+    .step-circle {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .step-circle:hover {
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(0, 156, 86, 0.3);
+    }
+
+    .step-label {
+        transition: all 0.3s ease;
+    }
+
+    /* Progress Bar Animation */
+    #progressBar {
+        background: linear-gradient(90deg, var(--brand-green-light), var(--brand-primary));
+        transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Form Fields Enhancement */
+    #multiPhaseForm input:focus,
+    #multiPhaseForm textarea:focus,
+    #multiPhaseForm select:focus {
+        border-color: var(--brand-primary);
+        box-shadow: 0 0 0 3px rgba(0, 156, 86, 0.1);
+    }
+
+    #multiPhaseForm input.border-red-500,
+    #multiPhaseForm textarea.border-red-500,
+    #multiPhaseForm select.border-red-500 {
+        border-color: #ef4444;
+        background-color: #fef2f2;
+    }
+
+    /* Phase Headers */
+    .phase-content h2 {
+        animation: slideIn 0.3s ease-out;
+    }
+
+    .phase-content h3 {
+        color: var(--brand-black);
+        font-weight: 600;
+    }
+
+    /* Section Dividers */
+    .phase-content .border-b {
+        border-color: var(--brand-gray-medium);
+    }
+
+    /* Preview Cards in Phase 4 */
+    .bg-brand-primary.bg-opacity-10 {
+        background-color: rgba(0, 156, 86, 0.1);
+        border: 2px solid var(--brand-primary);
+        transition: all 0.3s ease;
+    }
+
+    .bg-brand-primary.bg-opacity-10:hover {
+        background-color: rgba(0, 156, 86, 0.15);
+        box-shadow: 0 4px 12px rgba(0, 156, 86, 0.2);
+    }
+
+    /* Navigation Buttons */
+    #btnNextPhase,
+    #btnPrevPhase,
+    #btnSubmitInitiative,
+    #btnCancelWizard {
+        transition: all 0.2s ease;
+        font-weight: 600;
+    }
+
+    #btnNextPhase:hover:not(:disabled),
+    #btnSubmitInitiative:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 156, 86, 0.3);
+    }
+
+    #btnPrevPhase:hover,
+    #btnCancelWizard:hover {
+        background-color: var(--brand-gray-light);
+        border-color: var(--brand-gray-dark);
+    }
+
+    #btnNextPhase:disabled,
+    #btnSubmitInitiative:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    /* Input Groups in Phase 4 */
+    .bg-brand-gray-light {
+        background-color: var(--brand-gray-light);
+        transition: all 0.2s ease;
+    }
+
+    .bg-brand-gray-light:hover {
+        background-color: #f0f0f0;
+    }
+
+    /* ROI Color Classes */
+    .text-brand-green-light {
+        color: var(--brand-green-light) !important;
+    }
+
+    .text-brand-yellow-gold {
+        color: var(--brand-yellow-gold) !important;
+    }
+
+    /* Tooltips for wizard */
+    .wizard-tooltip {
+        position: relative;
+    }
+
+    .wizard-tooltip::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: var(--brand-black);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 0.5rem;
+        font-size: 0.875rem;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s ease;
+        z-index: 1000;
+    }
+
+    .wizard-tooltip:hover::after {
+        opacity: 1;
+    }
+
+    /* Section Backgrounds */
+    .bg-brand-gray-light.p-4 {
+        border-left: 4px solid var(--brand-primary);
+    }
+
+    /* Wizard Form Grid Enhancements */
+    #multiPhaseForm .grid {
+        gap: 1rem;
+    }
+
+    @media (min-width: 768px) {
+        #multiPhaseForm .grid-cols-1.md\:grid-cols-2 {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    /* Loading State for Submit Button */
+    #btnSubmitInitiative .animate-spin {
+        display: inline-block;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        from {
+            transform: rotate(0deg);
+        }
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    /* Phase Transition */
+    .phase-content {
+        transition: opacity 0.3s ease-in-out;
+    }
+
+    /* Focus States */
+    #multiPhaseForm button:focus,
+    #multiPhaseForm input:focus,
+    #multiPhaseForm select:focus,
+    #multiPhaseForm textarea:focus {
+        outline: none;
+    }
+
+    /* Stepper Line Enhancement */
+    #progressBar {
+        border-radius: 0.25rem;
+        height: 100%;
+    }
+
+    /* Responsive Stepper */
+    @media (max-width: 640px) {
+        .step-container {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .step-label {
+            font-size: 0.65rem;
+            line-height: 1.2;
+        }
+        
+        .step-circle {
+            width: 2rem;
+            height: 2rem;
+            font-size: 0.875rem;
+        }
+    }
+
+    /* ============================================================================
+       RESPONSIVE DESIGN
+       ============================================================================ */
+
+    @media (max-width: 768px) {
+        #sidebar {
+            transform: translateX(-100%);
+        }
+
+        #sidebar.mobile-open {
+            transform: translateX(0);
+        }
+
+        #mainContent {
+            margin-left: 0 !important;
+        }
+    }
+</style>
